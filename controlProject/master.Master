@@ -1,0 +1,38 @@
+﻿<%@ Master Language="C#" %>
+
+<!DOCTYPE html>
+
+<html dir="rtl" land="fa">
+<head runat="server">
+    <title>BIServices</title>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link rel="icon" href="../image/fav.png" type="image/x-icon">
+    <link href="css/style.css" rel="stylesheet" />
+    <link href="../css/jquery-ui.css" rel="stylesheet" />
+    <link href="../css/dx.light.css" rel="stylesheet" />
+    
+        <script src="../js/jquery.min.js"></script>
+        
+        <script src="../js/jquery-ui.min.js"></script>
+        
+        <script src="../js/dx.all.js"></script>
+        <script src="../js/exceljs.min.js"></script>
+        <script src="../js/FileSaver.min.js"></script>
+</head>
+<style>
+    body, button{font-family : iransans;}
+</style>
+<body>
+    <div id="form1" >
+        <div>
+            <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+            </asp:ContentPlaceHolder>
+        </div>
+       
+
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="MP.Master.cs" Inherits="HitcoForm.Site1" %>
+
+<!DOCTYPE html>
+
+<html>
+<head runat="server">
+    <title></title>
+    <link rel="icon" type="image/png" href="image/fav.png">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <link rel="stylesheet" href="css/dx.light.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/main.js"></script>
+   <!--<script src="js/signUp.js"></script>-->
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/dx.all.js"></script>
+    <script src="js/exceljs.min.js"></script>
+    <script src="js/FileSaver.min.js"></script>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+</head>
+<body>
+    <%--<form id="form1" runat="server">--%>
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <img src="image/logos-hit.png" alt="User Avatar">
+            </div>
+            <nav class="menu" id="menuContainer">
+             <!--   <div class="dropdown">
+                    <a href="#" class="menu-item active" onclick="toggleDropdown(event)">
+                        <img src="image/dashboard.png" alt="" />
+                        <span class="menuItm">داشبورد</span>
+                    </a>
+                </div>
+                <div class="dropdown">
+                    <a href="#" class="menu-item" onclick="toggleDropdown(event)">
+                        <img src="image/createform.png" alt="" />
+                        <span class="menuItm">ایجاد فرم جدید</span>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="#" class="border activeSub">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26" class="icon25">
+                                
+                                <rect width="26" height="26" rx="5" ry="5" class="background activeSubRec" />
+
+                               
+                                <text x="13" y="16" font-family="Arial, sans-serif" font-size="10" fill="#336699" text-anchor="middle" dominant-baseline="middle" class="text activeSubTex">۲۵</text>
+                            </svg>
+
+                            <span class="menuItm">فرم 25 روزه</span>
+                        </a>
+                        <a href="#" class="border">
+                            <img src="image/100.png" alt="" />
+                            <span class="menuItm">فرم 100 روزه</span>
+                        </a>
+                        <a href="#" class="border">
+                            <img src="image/400.png" alt="" />
+                            <span class="menuItm">فرم 400 روزه</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <a href="#" class="menu-item" onclick="toggleDropdown(event)">
+                        <img src="image/viewform.png" alt="" />
+                        <span class="menuItm">مشاهده فرم ها</span>
+                    </a>
+                    <div class="dropdown-content">
+                        <a href="#" class="border">
+                            <img src="image/25.png" alt="" />
+                            <span class="menuItm">فرم 25 روزه</span>
+                        </a>
+                        <a href="#" class="border">
+                            <img src="image/100.png" alt="" />
+                            <span class="menuItm">فرم 100 روزه</span>
+                        </a>
+                        <a href="#" class="border">
+                            <img src="image/400.png" alt="" />
+                            <span class="menuItm">فرم 400 روزه</span>
+                        </a>
+                    </div>
+                </div>-->
+            </nav>
+          <a href="#" class="logOut borderLogout" id="logOut">
+                <img src="image/exite.png" alt="" />
+                <span class="menuItm">خروج</span>
+            </a>
+        </aside>
+        
+        <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+        </asp:ContentPlaceHolder>
+    </div>
+    <%--</form>--%>
+</body>
+</html>

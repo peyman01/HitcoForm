@@ -1,0 +1,54 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="master.master.cs" Inherits="Web_Services.pages.master" %>
+
+<!DOCTYPE html>
+
+<html>
+<head runat="server">
+    <title>BIServices</title>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link rel="icon" href="image/fav.png" type="image/x-icon">
+    <link href="../css/style.css" rel="stylesheet" />
+    <link href="../css/datePicker.css" rel="stylesheet" />
+    <link href="../css/bootStrap.css" rel="stylesheet" />
+    <link href="../css/dx.light.css" rel="stylesheet" />
+
+
+    <link rel="stylesheet" href="../css/bootstrap-select.min.css">
+    <link rel="stylesheet" href="../css/leaflet.css" />
+
+</head>
+<body>
+    <div id="form1" >
+        <div>
+            <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+            </asp:ContentPlaceHolder>
+        </div>
+         <script src="../scripts/proviences.js"></script>
+        <script src="../jquery-3.7.1.min.js"></script>
+        <script src="../scripts/main-3.js" ></script>
+        <script src="../scripts/main.js"></script>
+        <script src="../scripts/main-2.js"></script>
+        
+        <script src="../scripts/datePicker.js"></script>
+        <script src="../scripts/datePicker.holidays.js"></script>
+        <script src="../scripts/bootStrap.js"></script>
+        <script src="../scripts/excel.js"></script>
+        <script src="../scripts/chart.js"></script>
+       
+       
+
+        <script src="../scripts/bootstrap-select.min.js"></script>
+        <script src="../scripts/leaflet.js"></script>
+        <script src="../scripts/jszip.min.js"></script>
+        <script src="../scripts/exceljs.min.js"></script>
+        <script src="../scripts/FileSaver.min.js"></script>
+
+
+        <script src="../scripts/dx.all.js"></script>
+
+
+    </div>
+</body>
+</html>

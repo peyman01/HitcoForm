@@ -1,0 +1,1 @@
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="authRedirect.aspx.cs" Inherits="Web_Services.controller.authRedirect" %>

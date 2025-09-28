@@ -1,0 +1,365 @@
+﻿@font-face {
+    font-family: "iransans";
+    font-style: normal;
+    src: url('../fonts/IRANSansWeb.eot');
+    src: url('../fonts/IRANSansWeb.eot?#iefix') format('embedded-opentype'),
+    /* IE6-8 */
+    url('../fonts/IRANSansWeb.woff2') format('woff2'),
+    /* FF39+,Chrome36+, Opera24+*/
+    url('../fonts/IRANSansWeb.woff') format('woff'),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+    url('../fonts/IRANSansWeb.ttf') format('truetype');
+}
+
+* {
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    direction: rtl;
+    font-family: "iransans";
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.headerLogin {
+    background-image: url("../image/image.png");
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-radius: 15px;
+    height: 40vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.hitcoLogo {
+    width: 160px;
+    padding: 6px 0px 0px 6px;
+}
+
+.headerDate {
+    height: 20%;
+    display: flex;
+    align-items: flex-end;
+    padding: 0px 15px 10px 0px;
+    color: #fff;
+    font-size: 13px;
+}
+
+.headerLogo {
+    display: flex;
+    justify-content: end;
+}
+
+.headerTitle {
+    height: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+}
+
+.topHeaderTitle {
+    text-align: center;
+}
+
+.topTitle,
+.bottonHeaderTitle {
+    font-size: 20px;
+}
+
+.endTitle {
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.login-form {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 500px;
+    margin-top: -85px;
+}
+
+.wellcome {
+    color: #3A7B9B;
+    font-size: 22px;
+    margin-bottom: 10px;
+}
+
+p.wellDesc {
+    color: #A0AEC0;
+    font-size: 12px;
+    margin-bottom: 20px;
+}
+
+.login-form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #000000;
+}
+
+.login-form input {
+    width: -webkit-fill-available;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+    .remember-me input {
+        margin-left: 5px;
+        width: auto;
+        margin-left: 12px;
+        margin-bottom: 0;
+    }
+
+input::placeholder {
+    font-family: 'iransans';
+    color: #ccc;
+}
+
+label.remember {
+    margin: 0;
+}
+
+
+.login-form button {
+    width: 100%;
+    padding: 10px;
+    background-color: #3A7B9B;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: "iransans";
+}
+
+    .login-form button:hover {
+        opacity: 90%;
+        background-color: #2d617a;
+    }
+
+
+
+
+.form {
+    position: relative;
+}
+
+.passToggle img {
+    width: 18px;
+    position: absolute;
+    bottom: 154px;
+    left: 10px;
+    cursor: pointer;
+}
+
+.forgot-password {
+    display: block;
+    text-align: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #242424;
+    text-decoration: none;
+}
+
+    .forgot-password:hover {
+        text-decoration: underline;
+    }
+
+input:focus-visible {
+    outline: 1px solid #525252;
+}
+
+
+.toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #dc35452e;
+    color: black;
+    text-align: center;
+    border: 2px solid #D40E00;
+    border-radius: 5px;
+    padding: 10px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    bottom: 30px;
+    font-size: 16px;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+    .toast.show {
+        visibility: visible;
+        opacity: 1;
+    }
+
+
+/*sign Up Code*/
+
+
+.fullName,
+.password {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 15px;
+}
+
+.lastName,
+.firstName,
+.pass,
+.passRep {
+    width: 50%;
+}
+
+input#username {
+    width: 60%;
+}
+
+.signUpBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    justify-content: center;
+    position: relative;
+}
+
+button#signInBtn {
+    width: 70%;
+    margin-top: 5%;
+    padding: 15px;
+}
+
+p.wellDesc a {
+    color: #3A7B9B;
+    text-decoration: none;
+    font-weight:bold;
+}
+
+.passToggleRe img {
+    width: 18px;
+    position: absolute;
+    bottom: 154px;
+    right: 186px;
+    cursor: pointer;
+}
+
+/***********************devExpress***************************/
+.btn-backToLogin {
+    padding: 10px;
+    border: 2px solid #3A7B9B;
+    text-align: center;
+    border-radius: 10px;
+    width: fit-content;
+    background-color: #3A7B9B;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.dx-popup-content.custom-popup {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center
+}
+/* تنظیمات ریسپانسیو */
+@media (max-width: 768px) {
+    .headerLogin {
+        height: auto;
+        border-radius: 10px;
+    }
+
+    .headerDate {
+        align-items: flex-start;
+    }
+
+    .headerTitle .topTitle,
+    .headerTitle .bottonHeaderTitle,
+    .headerTitle .endTitle {
+        font-size: 16px;
+    }
+
+    .login-form {
+        width: 90%;
+        padding: 20px;
+        margin-top: -50px;
+    }
+
+        .login-form h3.wellcome {
+            font-size: 18px;
+        }
+
+        .login-form label {
+            font-size: 12px;
+        }
+
+        .login-form input {
+            font-size: 14px;
+            padding: 8px;
+        }
+
+        .login-form button {
+            font-size: 14px;
+            padding: 8px;
+        }
+
+    .forgot-password {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .headerLogin {
+        background-size: contain;
+        padding: 10px;
+    }
+
+    .headerTitle .topTitle,
+    .headerTitle .bottonHeaderTitle,
+    .headerTitle .endTitle {
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .login-form {
+        padding: 15px;
+        margin-top: -30px;
+    }
+
+        .login-form h3.wellcome {
+            font-size: 16px;
+        }
+
+        .login-form input {
+            font-size: 12px;
+        }
+
+        .login-form button {
+            font-size: 12px;
+        }
+}

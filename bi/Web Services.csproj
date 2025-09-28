@@ -1,0 +1,378 @@
+﻿<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{8EB5047E-0BA2-4104-9022-097A7FD08D62}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Web_Services</RootNamespace>
+    <AssemblyName>Web Services</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <UseIISExpress>true</UseIISExpress>
+    <Use64BitIISExpress />
+    <IISExpressSSLPort>44357</IISExpressSSLPort>
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
+    <UseGlobalApplicationHostFile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CodeDom.Providers.DotNetCompilerPlatform, Version=4.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.4.1.0\lib\net472\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json.Bson, Version=1.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.Bson.1.0.3\lib\net45\Newtonsoft.Json.Bson.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.6.1\lib\net462\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.6.3\lib\net462\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.Http.Formatting, Version=6.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.6.0.0\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.6.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.6.1\lib\net462\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\net462\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.4.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.6.3\lib\net462\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.DynamicData" />
+    <Reference Include="System.Web.Entity" />
+    <Reference Include="System.Web.ApplicationServices" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web.Http, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.3.0\lib\net45\System.Web.Http.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Http.WebHost, Version=5.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.WebHost.5.3.0\lib\net45\System.Web.Http.WebHost.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.EnterpriseServices" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="controller\alborz.asmx" />
+    <Content Include="controller\authRedirect.aspx" />
+    <Content Include="controller\Barij.asmx" />
+    <Content Include="controller\Dey.asmx" />
+    <Content Include="controller\Finance.asmx" />
+    <Content Include="controller\HtmlPage1.html" />
+    <Content Include="controller\HtmlPage2.html" />
+    <Content Include="controller\Razi.asmx" />
+    <Content Include="controller\exir.asmx" />
+    <Content Include="controller\Daya.asmx" />
+    <Content Include="controller\darouPakhsh.asmx" />
+    <Content Include="controller\Karen.asmx" />
+    <Content Include="controller\Hejrat.asmx" />
+    <Content Include="controller\mahya.asmx" />
+    <Content Include="controller\Services.asmx" />
+    <Content Include="controller\milan.asmx" />
+    <Content Include="controller\shafaArad.asmx" />
+    <Content Include="controller\updateBi.asmx" />
+    <Content Include="controller\upload.asmx" />
+    <Content Include="controller\userLogin.asmx" />
+    <Content Include="css\bootstrap-select.min.css" />
+    <Content Include="css\bootstrap.css" />
+    <Content Include="css\datePicker.css" />
+    <Content Include="css\dx.all.js" />
+    <Content Include="css\dx.light.css" />
+    <Content Include="css\dx.material.blue.light.css" />
+    <Content Include="css\dx.material.teal.light.css" />
+    <Content Include="css\leaflet.css" />
+    <Content Include="css\login.css" />
+    <Content Include="css\style.css" />
+    <Content Include="HtmlPage1.html" />
+    <Content Include="image\1.png" />
+    <Content Include="image\100.png" />
+    <Content Include="image\2.png" />
+    <Content Include="image\25.png" />
+    <Content Include="image\400.png" />
+    <Content Include="image\archive.png" />
+    <Content Include="image\Arrow %281%29.png" />
+    <Content Include="image\arrow-drop.png" />
+    <Content Include="image\arrow.png" />
+    <Content Include="image\Avatar.png" />
+    <Content Include="image\bac.png" />
+    <Content Include="image\Backgrounddonotcom.png" />
+    <Content Include="image\bg.jpg" />
+    <Content Include="image\btnbac.png" />
+    <Content Include="image\cancled.png" />
+    <Content Include="image\createform.png" />
+    <Content Include="image\dashboard.png" />
+    <Content Include="image\deleteForm.png" />
+    <Content Include="image\deleteIcn.png" />
+    <Content Include="image\down-arrow.png" />
+    <Content Include="image\editIcn.png" />
+    <Content Include="image\excel.png" />
+    <Content Include="image\exite.png" />
+    <Content Include="image\eye.png" />
+    <Content Include="image\eyeHide.png" />
+    <Content Include="image\fav.png" />
+    <Content Include="image\folder.png" />
+    <Content Include="image\greenBack.png" />
+    <Content Include="image\Group 3812.png" />
+    <Content Include="image\home.png" />
+    <Content Include="image\Image.png" />
+    <Content Include="image\log-out.png" />
+    <Content Include="image\logo.png" />
+    <Content Include="image\logos-hit.png" />
+    <Content Include="image\logos.png" />
+    <Content Include="image\pdf.png" />
+    <Content Include="image\plus.png" />
+    <Content Include="image\point.png" />
+    <Content Include="image\profile.jpg" />
+    <Content Include="image\redBack.png" />
+    <Content Include="image\search.png" />
+    <Content Include="image\sort1.png" />
+    <Content Include="image\Vector %281%29.png" />
+    <Content Include="image\Vector.png" />
+    <Content Include="image\verified.png" />
+    <Content Include="image\viewform.png" />
+    <Content Include="JavaScript.js" />
+    <Content Include="login.aspx" />
+    <Content Include="scripts\bootstrap-select.min.js" />
+    <Content Include="scripts\dx.all.js" />
+    <Content Include="scripts\dx.light.css" />
+    <Content Include="scripts\exceljs.min.js" />
+    <Content Include="scripts\FileSaver.min.js" />
+    <Content Include="scripts\jszip.min.js" />
+    <Content Include="scripts\leaflet.js" />
+    <Content Include="scripts\login.js" />
+    <Content Include="scripts\main-3.js" />
+    <Content Include="scripts\main-2.js" />
+    <Content Include="scripts\proviences.js" />
+    <Content Include="serviceAdmin.aspx" />
+    <Content Include="scripts\bootstrap.js" />
+    <Content Include="scripts\chart.js" />
+    <Content Include="scripts\datePicker.js" />
+    <Content Include="scripts\excel.js" />
+    <Content Include="scripts\main.js" />
+    <Content Include="Web.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="controller\alborz.asmx.cs">
+      <DependentUpon>alborz.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\authRedirect.aspx.cs">
+      <DependentUpon>authRedirect.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="controller\authRedirect.aspx.designer.cs">
+      <DependentUpon>authRedirect.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="controller\Barij.asmx.cs">
+      <DependentUpon>Barij.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\BaseWebService.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\config.cs" />
+    <Compile Include="controller\Dey.asmx.cs">
+      <DependentUpon>Dey.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Finance.asmx.cs">
+      <DependentUpon>Finance.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Razi.asmx.cs">
+      <DependentUpon>Razi.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\exir.asmx.cs">
+      <DependentUpon>exir.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Daya.asmx.cs">
+      <DependentUpon>Daya.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\darouPakhsh.asmx.cs">
+      <DependentUpon>darouPakhsh.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Karen.asmx.cs">
+      <DependentUpon>Karen.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Hejrat.asmx.cs">
+      <DependentUpon>Hejrat.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\mahya.asmx.cs">
+      <DependentUpon>mahya.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\Services.asmx.cs">
+      <DependentUpon>Services.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\milan.asmx.cs">
+      <DependentUpon>milan.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\SessionValidationSoapExtension.cs" />
+    <Compile Include="controller\shafaArad.asmx.cs">
+      <DependentUpon>shafaArad.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\updateBi.asmx.cs">
+      <DependentUpon>updateBi.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\upload.asmx.cs">
+      <DependentUpon>upload.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="controller\uploadHandler.ashx.cs">
+      <DependentUpon>uploadHandler.ashx</DependentUpon>
+    </Compile>
+    <Compile Include="controller\userLogin.asmx.cs">
+      <DependentUpon>userLogin.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="dataAccess\api.cs" />
+    <Compile Include="dataAccess\loginRepository.cs" />
+    <Compile Include="dataAccess\repository.cs" />
+    <Compile Include="login.aspx.cs">
+      <DependentUpon>login.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="login.aspx.designer.cs">
+      <DependentUpon>login.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="master.Master.cs">
+      <DependentUpon>master.Master</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="master.Master.designer.cs">
+      <DependentUpon>master.Master</DependentUpon>
+    </Compile>
+    <Compile Include="serviceAdmin.aspx.cs">
+      <DependentUpon>serviceAdmin.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="serviceAdmin.aspx.designer.cs">
+      <DependentUpon>serviceAdmin.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="css\font\IRANSansWeb%28FaNum%29.eot" />
+    <Content Include="css\font\IRANSansWeb%28FaNum%29.ttf" />
+    <Content Include="css\font\IRANSansWeb%28FaNum%29.woff" />
+    <Content Include="css\font\IRANSansWeb%28FaNum%29.woff2" />
+    <Content Include="libman.json" />
+    <Content Include="fonts\IRANSansWeb.eot" />
+    <Content Include="fonts\IRANSansWeb.ttf" />
+    <Content Include="fonts\IRANSansWeb.woff" />
+    <Content Include="fonts\IRANSansWeb.woff2" />
+    <Content Include="css\icons\dxicons.ttf" />
+    <Content Include="css\icons\dxicons.woff" />
+    <Content Include="css\icons\dxicons.woff2" />
+    <Content Include="css\icons\dxiconsfluent.ttf" />
+    <Content Include="css\icons\dxiconsfluent.woff" />
+    <Content Include="css\icons\dxiconsfluent.woff2" />
+    <Content Include="css\icons\dxiconsmaterial.ttf" />
+    <Content Include="css\icons\dxiconsmaterial.woff" />
+    <Content Include="css\icons\dxiconsmaterial.woff2" />
+    <Content Include="controller\uploadHandler.ashx" />
+    <None Include="packages.config" />
+    <Content Include="master.Master" />
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="pages\" />
+  </ItemGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>55983</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>https://localhost:44357/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <Import Project="..\packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.4.1.0\build\net472\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.targets" Condition="Exists('..\packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.4.1.0\build\net472\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.4.1.0\build\net472\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.4.1.0\build\net472\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

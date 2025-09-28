@@ -1,0 +1,277 @@
+@font-face {
+    font-family: "iransans";
+    font-style: normal;
+    src: url('/fonts/IRANSansWeb.eot');
+    src: url('/fonts/IRANSansWeb.eot?#iefix') format('embedded-opentype'),
+    /* IE6-8 */
+    url('/fonts/IRANSansWeb.woff2') format('woff2'),
+    /* FF39+,Chrome36+, Opera24+*/
+    url('/fonts/IRANSansWeb.woff') format('woff'),
+    /* FF3.6+, IE9, Chrome6+, Saf5.1+*/
+    url('/fonts/IRANSansWeb.ttf') format('truetype');
+}
+
+/*////////////////////// H O M E . A S P X ////////////////////////////////////////////////////////////////*/
+.page-container {
+    padding: 20px;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+}
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.control-section {
+    background: white;
+    padding: 5px 25px 5px 1px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.tabs-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+.grids-section {
+    margin-top: 20px;
+}
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+}
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.control-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+.control-status {
+    font-size: 14px;
+    color: #666;
+}
+.simple-tabs {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+}
+.tab-item {
+    padding: 7px 25px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+.tab-item:hover {
+    background: #e9ecef;
+    color: #333;
+}
+.tab-item.active {
+    background: white;
+    color: #007bff;
+    border-bottom-color: #007bff;
+    font-weight: 600;
+}
+.sheet-grid {
+    margin-bottom: 30px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+.sheet-grid-header {
+    padding: 7px;
+    color: white;
+    text-align: center;
+    border-radius: 10px 10px 0px 0px;
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.loading-message, .error-message, .empty-message {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 16px;
+}
+.loading-message {
+    color: #666;
+}
+.loading-message i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #007bff;
+}
+.error-message {
+    color: #dc3545;
+    background: #f8d7da;
+    border-radius: 4px;
+}
+.error-message i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #dc3545;
+}
+.empty-message {
+    color: #6c757d;
+}
+.empty-message i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #6c757d;
+}
+.dx-theme-generic-typography .dx-widget {
+    font-family: 'iransans';
+}
+.dx-datagrid-headers {
+    background: #f8f9fa !important;
+    font-weight: 600;
+}
+.header-row {
+    background-color: #e6f3ff !important;
+    font-weight: bold;
+}
+.sum-row {
+    background-color: #fff2cc !important;
+    font-weight: bold;
+}
+/*.readonly-cell {
+    background-color: #f5f5f5 !important;
+    color: #666;
+}*/
+.dx-texteditor-input {
+    height: 18px !important;
+    line-height: 26px !important;
+    font-size: 12px !important;
+    min-height: 28px !important;
+}
+.grid_sheet{
+    width: 100% !important;
+}
+.dx-datagrid-rowsview .dx-row{
+    line-height: unset !important;
+    height: 36px;
+}
+.custom-header-level-0 {
+    color: white !important;
+    font-weight: bold !important;
+    text-align: center !important;
+}
+
+.custom-header-level-1 {
+    color: #fff !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+}
+
+
+.dx-datagrid-headers .dx-header-row:has(.custom-header-level-0) {
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%) !important;
+}
+.dx-datagrid-headers .dx-header-row:has(.custom-header-level-1) {
+    background: darkseagreen !important;
+}
+
+/* Ensure text is visible */
+.custom-header-level-0 .dx-sort-indicator {
+    color: white !important;
+}
+
+.custom-header-level-1 .dx-sort-indicator {
+    color: #495057 !important;
+}
+.item-cell:not(.sum-row):not(.dx-datagrid-action){
+    background-color: aquamarine !important;
+}
+.l-b-col , .item-cell{
+    border-left: 1px solid #999 !important;
+}
+.r-b-col{
+    border-right: 1px solid #999 !important;
+}
+.settings-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: darkred;
+    padding: 3px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 25px !important;
+    transition: all 0.3s ease;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.settings-popup-content {
+    padding: 0 10px;
+    max-height: 88vh;
+}
+
+.settings-section {
+    margin-bottom: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.settings-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.settings-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.sheet-management-grid {
+    margin-bottom: 20px;
+}
+
+.sheet-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px 8px 0 0;
+    font-weight: 600;
+    text-align: center;
+}
+
+.add-item-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 2px dashed #dee2e6;
+}
+
+.add-item-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+/*////////////////////// ////////////////// ////////////////////////////////////////////////////////////////*/
