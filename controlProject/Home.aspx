@@ -100,7 +100,7 @@ function initializeSettingsPopup() {
                         </div>
                     </div>
                 </div>
-            `);
+            `); 
             
         scrollContainer.dxScrollView({
             direction: "vertical",
