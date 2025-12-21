@@ -2,6 +2,11 @@
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
     <title>Hitco Control</title>
+    <style>
+        .manual-predict-cell {
+            /*background-color: #e8f5e9 !important;*/
+        }
+    </style>
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
@@ -600,11 +605,8 @@ function initializeControls() {
 
 function setDefaultFiscalYear() {
     // Calculate current Persian year
-    const today = new Date();
-    const persianYear = today.getMonth() < 3 ? 
-        (today.getFullYear() - 621) : 
-        (today.getFullYear() - 620);
     
+    const persianYear = Number(YKN(new Date().toLocaleDateString('fa-IR').split('/')[0]));
     const fiscalYears = [];
     for (let i = persianYear - 2; i <= persianYear + 2; i++) {
         fiscalYears.push(i);
@@ -617,7 +619,19 @@ function setDefaultFiscalYear() {
     
     selectedFiscalYear = persianYear;
 }
-
+function YKN (txt) {
+    const sts = 'یک۰۱۲۳۴۵۶۷۸۹';
+    const str = 'يك0123456789';
+    var ret = ""
+    txt = txt || "";
+    for (var i = 0; i < txt.length; i++) {
+        var ch = txt.charAt(i);
+        if (sts.indexOf(ch) >= 0)
+            ch = str.charAt(sts.indexOf(ch));
+        ret += ch;
+    }
+    return ret;
+};
 function loadCompanies() {
     $.ajax({
         url: 'Controller/cApi.ashx?action=getcompanies',
@@ -708,16 +722,52 @@ function selectCategory(categoryId) {
 let historicalDataTwoYears = [];
 let historicalDataPreviousYear = [];
 let currentYearData = [];
+
+function loadHistoricalData() {
+    return Promise.all([
+        loadHistoricalYearData(selectedFiscalYear - 2),
+        loadHistoricalYearData(selectedFiscalYear - 1)
+    ]);
+}
+
+function loadHistoricalYearData(fiscalYear) {
+return
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: `Controller/cApi.ashx?action=gethistoricalyeardata&fiscalYear=${fiscalYear}&categoryId=${selectedCategoryId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.data) {
+                    if (fiscalYear === selectedFiscalYear - 2) {
+                        historicalDataTwoYears = response.data;
+                    } else if (fiscalYear === selectedFiscalYear - 1) {
+                        historicalDataPreviousYear = response.data;
+                    }
+                    resolve();
+                } else {
+                    reject(response.error || 'خطا در بارگیری داده‌های تاریخی');
+                }
+            },
+            error: function(xhr, status, error) {
+                reject(error);
+            }
+        });
+    });
+}
+
 function loadCategoryData() {
     if (!selectedCategoryId || !selectedCompanyId || !selectedFiscalYear) return;
-    
+
     showLoading();
-    
-    // Load sheets and items in parallel
-    Promise.all([
-        loadSheets(),
-        loadItems()
-    ]).then(() => {
+
+    // Load historical data first, then sheets and items
+    loadHistoricalData().then(() => {
+        return Promise.all([
+            loadSheets(),
+            loadItems()
+        ]);
+    }).then(() => {
         createGrids();
     }).catch(error => {
         showError('خطا در بارگیری اطلاعات: ' + error);
@@ -820,9 +870,25 @@ function createSheetGrid(sheet) {
                 format: { type: 'fixedPoint', precision: 0 },
                 width: 130,
                 alignment: 'left',
-                customizeText: function(e) {
-                    if (e.value === null || e.value === undefined) return '';
-                    return e.value.toLocaleString();
+                allowEditing: true,
+                setCellValue: function(rowData, value) {
+                    // فقط مقدار predict رو تغییر بده، نه مقدار اصلی
+                    const predictField = `period_amount_predict_${period.PeriodID}`;
+                    rowData[predictField] = value;
+                },
+                cellTemplate: function(container, options) {
+                    const actualValue = options.value;
+                    const predictValue = options.data[`period_amount_predict_${period.PeriodID}`];
+
+                    const html = `
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; padding: 5px;">
+                            <div style="font-size: 14px; color: #28a745; font-weight: bold;">
+                                ${actualValue != null ? actualValue.toLocaleString() : ''}
+                            </div>
+                            ${predictValue != null ? `<div style="font-size: 11px; color: #6c757d;">${predictValue.toLocaleString()}</div>` : ''}
+                        </div>
+                    `;
+                    container.html(html);
                 }
             });
             monthColumns.push({
@@ -840,9 +906,25 @@ function createSheetGrid(sheet) {
                 format: { type: 'fixedPoint', precision: 0 },
                 width: 120,
                 alignment: 'left',
-                customizeText: function(e) {
-                    if (e.value === null || e.value === undefined) return '';
-                    return e.value.toLocaleString();
+                allowEditing: true,
+                setCellValue: function(rowData, value) {
+                    // فقط مقدار predict رو تغییر بده، نه مقدار اصلی
+                    const predictField = `period_predict_${period.PeriodID}`;
+                    rowData[predictField] = value;
+                },
+                cellTemplate: function(container, options) {
+                    const actualValue = options.value;
+                    const predictValue = options.data[`period_predict_${period.PeriodID}`];
+
+                    const html = `
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; padding: 5px;">
+                            <div style="font-size: 14px; color: #28a745; font-weight: bold;">
+                                ${actualValue != null ? actualValue.toLocaleString() : ''}
+                            </div>
+                            ${predictValue != null ? `<div style="font-size: 11px; color: #6c757d;">${predictValue.toLocaleString()}</div>` : ''}
+                        </div>
+                    `;
+                    container.html(html);
                 }
             });
         } else {
@@ -861,9 +943,11 @@ function createSheetGrid(sheet) {
         const row = {
             ItemID: item.ItemID,
             ItemNameFa: item.ItemNameFa,
+            ItemName: item.ItemName,
             ItemType: item.ItemType,
             FormulaExpression: item.FormulaExpression,
             OrderIndex: item.OrderIndex,
+            manualPredict: item.manualPredict,
             DataType: item.DataType,
             twoYearsAgo: getHistoricalValue(item.ItemID, twoYearsAgo),
             previousYear: getHistoricalValue(item.ItemID, previousYear),
@@ -876,6 +960,7 @@ function createSheetGrid(sheet) {
             if (hasAmountData && hasStringData) {
                 if (item.DataType === 'Amount') {
                     row[`period_amount_${period.PeriodID}`] = getCurrentYearValue(item.ItemID, period.PeriodID, 'Amount');
+                    row[`period_amount_predict_${period.PeriodID}`] = null;
                     row[`period_string_${period.PeriodID}`] = undefined;
                 } else {
                     row[`period_amount_${period.PeriodID}`] = undefined;
@@ -883,6 +968,7 @@ function createSheetGrid(sheet) {
                 }
             } else {
                 row[`period_${period.PeriodID}`] = getCurrentYearValue(item.ItemID, period.PeriodID, item.DataType);
+                row[`period_predict_${period.PeriodID}`] = null;
             }
         });
 
@@ -1037,9 +1123,11 @@ function createSheetGrid(sheet) {
         rowAlternationEnabled: true,
         columnResizingMode: 'widget',
         editing: {
-            mode: 'batch',
-            allowUpdating: true,
-            startEditAction: 'click'
+            mode: 'cell',
+            allowUpdating: function(e) {
+                return e.row.data.manualPredict === true;
+            },
+            startEditAction: 'dblClick'
         },
         onCellPrepared: function(e) {
             if (e.rowType === 'data') {
@@ -1049,6 +1137,11 @@ function createSheetGrid(sheet) {
                     e.cellElement.addClass('header-row');
                 } else if (item.ItemType === 'Sum') {
                     e.cellElement.addClass('sum-row');
+                }
+                
+                // اضافه کردن کلاس برای سلول‌های قابل ویرایش (با manualPredict=true)
+                if (item.manualPredict === true) {
+                    e.cellElement.addClass('manual-predict-cell');
                 }
                 
                 // Make calculated cells and wrong data type cells readonly
@@ -1070,83 +1163,284 @@ function createSheetGrid(sheet) {
         onEditorPreparing: function(e) {
             if (e.parentType === 'dataRow') {
                 const item = e.row.data;
-                
+
                 if (item.ItemType !== 'Data') {
                     e.cancel = true;
                     return;
                 }
-                
+
                 if (e.dataField && e.dataField.startsWith('period_')) {
                     const isAmountColumn = e.dataField.includes('_amount_') || (!e.dataField.includes('_string_') && hasAmountData && !hasStringData);
                     const isStringColumn = e.dataField.includes('_string_') || (!e.dataField.includes('_amount_') && hasStringData && !hasAmountData);
-                    
-                    if ((item.DataType === 'Amount' && isStringColumn) || 
+
+                    if ((item.DataType === 'Amount' && isStringColumn) ||
                         (item.DataType === 'String' && isAmountColumn)) {
                         e.cancel = true;
                     }
+
+                    // نمایش مقدار پیش‌بینی برای ویرایش
+                    if (item.DataType === 'Amount' && !e.dataField.includes('_string_')) {
+                        const predictField = e.dataField.replace('period_amount_', 'period_amount_predict_').replace(/^period_(\d+)$/, 'period_predict_$1');
+                        const currentPredictValue = item[predictField];
+
+                        // اگر مقدار predict وجود داره، اونو نمایش بده، وگرنه مقدار اصلی
+                        const initialValue = currentPredictValue != null ? currentPredictValue : item[e.dataField];
+
+                        e.editorOptions = {
+                            ...e.editorOptions,
+                            value: initialValue
+                        };
+                    }
                 }
-                
+
                 if (e.dataField && e.dataField.includes('_string_') && item.DataType === 'String') {
                     e.editorOptions = {
                         rtlEnabled: true,
                         placeholder: 'متن را وارد کنید...'
                     };
                 }
-                
+
                 if (e.dataField && (e.dataField.includes('_amount_') || (!e.dataField.includes('_string_') && item.DataType === 'Amount'))) {
                     e.editorOptions = {
+                        ...e.editorOptions,
                         format: { type: 'fixedPoint', precision: 0 },
                         placeholder: '0'
                     };
                 }
             }
         },
-        onCellValueChanged: function(e) {
-            if (e.dataField && e.dataField.startsWith('period_')) {
-                setTimeout(() => {
-                    recalculateFormulas(e.component, hasAmountData, hasStringData);
-                    calculateRatios(e.component);
-                }, 50);
+        onRowUpdating: function(e) {
+            console.log('Row updating:', e);
+
+            // e.newData فقط شامل فیلدهایی است که تغییر کرده‌اند
+            if (e.newData && e.key) {
+                const item = e.oldData;
+
+                // پیدا کردن PeriodID از نام فیلد تغییر یافته
+                Object.keys(e.newData).forEach(fieldName => {
+                    // استخراج PeriodID از نام فیلد (مثلاً period_predict_3 -> PeriodID=3)
+                    const predictFieldMatch = fieldName.match(/period_(?:amount_)?predict_(\d+)/);
+
+                    if (predictFieldMatch) {
+                        const periodId = parseInt(predictFieldMatch[1]);
+                        const predictValue = e.newData[fieldName];
+
+                        // ارسال به API
+                        savePredictValue(sheet.SheetID, item.ItemID, periodId, predictValue, selectedFiscalYear);
+                    }
+                });
             }
+        },
+        onRowUpdated: function(e) {
+            console.log('Row updated:', e);
+            //todo: mange setTimeout after ajax
+            setTimeout(() => {
+                recalculateFormulas(e.component, hasAmountData, hasStringData);
+                calculateRatios(e.component);
+            }, 50);
         }
     }).dxDataGrid("instance");
 
-    // Calculate initial ratios
     setTimeout(() => {
         calculateRatios(grid);
     }, 100);
 
     sheetGrids[sheet.SheetID] = grid;
+
+    const currentFiscalYear = fiscalYearSelectBox.option("value");
+    loadBudgetData(sheet, currentFiscalYear);
 }
+
+    // تابع ذخیره مقدار پیش‌بینی
+    function savePredictValue(sheetId, itemId, periodId, predictValue, fiscalYear) {
+        const data = {
+            SheetID: sheetId,
+            ItemID: itemId,
+            PeriodID: periodId,
+            PredictValue: predictValue,
+            FiscalYear: fiscalYear
+        };
+        console.log('Sending data:', data);
+        $.ajax({
+            url: 'Controller/cApi.ashx?action=savepredictvalue',
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    DevExpress.ui.notify('مقدار پیش‌بینی ذخیره شد', 'success', 1500);
+                } else {
+                    DevExpress.ui.notify('خطا در ذخیره: ' + response.error, 'error', 3000);
+                }
+            },
+            error: function(xhr, status, error) {
+                DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+            }
+        });
+    }
+
+    // تابع جدید برای بارگذاری داده‌های بودجه
+    function loadBudgetData(sheet, fiscalYear) {
+        // فراخوانی API برای دریافت داده‌های بودجه
+        $.ajax({
+            url: `Controller/cApi.ashx?action=getbudgetdata&fiscalYear=${fiscalYear}&sheetId=${sheet.SheetID}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.data) {
+                    const grid = sheetGrids[sheet.SheetID];
+                    if (!grid) return;
+
+                    const dataSource = grid.option('dataSource');
+
+                    // پر کردن سلول‌ها با داده‌های بودجه
+                    response.data.forEach(budgetItem => {
+                        const row = dataSource.find(r => r.ItemID === budgetItem.ItemID);
+                        if (row) {
+                            const periodField = `period_${budgetItem.PeriodID}`;
+                            const periodAmountField = `period_amount_${budgetItem.PeriodID}`;
+                            const periodStringField = `period_string_${budgetItem.PeriodID}`;
+                            const periodPredictField = `period_predict_${budgetItem.PeriodID}`;
+                            const periodAmountPredictField = `period_amount_predict_${budgetItem.PeriodID}`;
+
+                            if (budgetItem.DataType === 'Amount') {
+                                if (row.hasOwnProperty(periodAmountField)) {
+                                    row[periodAmountField] = budgetItem.ItemValue;
+                                    row[periodAmountPredictField] = budgetItem.PredictValue;
+                                } else if (row.hasOwnProperty(periodField)) {
+                                    row[periodField] = budgetItem.ItemValue;
+                                    row[periodPredictField] = budgetItem.PredictValue;
+                                }
+                            } else if (budgetItem.DataType === 'String') {
+                                if (row.hasOwnProperty(periodStringField)) {
+                                    row[periodStringField] = budgetItem.ItemValue;
+                                } else if (row.hasOwnProperty(periodField)) {
+                                    row[periodField] = budgetItem.ItemValue;
+                                }
+                            }
+                        }
+                    });
+
+                    grid.refresh();
+
+                    // محاسبه فرمول‌ها و جمع‌ها بعد از بارگذاری داده‌ها
+                    const sheetItems = items.filter(item => item.SheetID === sheet.SheetID);
+                    const hasAmountData = sheetItems.some(item => item.DataType === 'Amount');
+                    const hasStringData = sheetItems.some(item => item.DataType === 'String');
+                    recalculateFormulas(grid, hasAmountData, hasStringData);
+                    calculateRatios(grid);
+                } else {
+                    DevExpress.ui.notify('خطا در دریافت داده‌های بودجه: ' + response.error, 'error', 3000);
+                }
+            },
+            error: function(xhr, status, error) {
+                DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+            }
+        });
+    }
 
     function recalculateFormulas(grid, hasAmountData, hasStringData) {
         const dataSource = grid.option('dataSource');
-        
+
         dataSource.forEach(row => {
+            // محاسبه جمع‌ها
             if (row.ItemType === 'Sum' && row.DataType === 'Amount') {
                 timePeriods.forEach(period => {
-                    let sum = 0;
-                    const periodField = hasAmountData && hasStringData ? 
-                        `period_amount_${period.PeriodID}` : 
+                    let sumActual = 0;
+                    let sumPredict = 0;
+                    const periodField = hasAmountData && hasStringData ?
+                        `period_amount_${period.PeriodID}` :
                         `period_${period.PeriodID}`;
-                    
-                    // Sum only Amount type data items
+                    const predictField = hasAmountData && hasStringData ?
+                        `period_amount_predict_${period.PeriodID}` :
+                        `period_predict_${period.PeriodID}`;
+
+                    // جمع زدن مقادیر واقعی و پیش‌بینی
                     dataSource.forEach(sourceRow => {
-                        if (sourceRow.ItemType === 'Data' && 
-                            sourceRow.DataType === 'Amount' && 
-                            sourceRow[periodField]) {
-                            sum += sourceRow[periodField] || 0;
+                        if (sourceRow.ItemType === 'Data' &&
+                            sourceRow.DataType === 'Amount') {
+                            sumActual += sourceRow[periodField] || 0;
+                            sumPredict += sourceRow[predictField] || 0;
                         }
                     });
-                    
-                    row[periodField] = sum;
+
+                    row[periodField] = sumActual;
+                    row[predictField] = sumPredict;
                 });
             }
-            // Note: String type sums would need custom logic based on business requirements
+
+            // محاسبه فرمول‌ها
+            if (row.ItemType === 'Formula' && row.DataType === 'Amount' && row.FormulaExpression) {
+                timePeriods.forEach(period => {
+                    const periodField = hasAmountData && hasStringData ?
+                        `period_amount_${period.PeriodID}` :
+                        `period_${period.PeriodID}`;
+                    const predictField = hasAmountData && hasStringData ?
+                        `period_amount_predict_${period.PeriodID}` :
+                        `period_predict_${period.PeriodID}`;
+
+                    // محاسبه مقدار واقعی - استفاده از تمام grids
+                    row[periodField] = evaluateFormulaAcrossSheets(row.FormulaExpression, periodField);
+
+                    // محاسبه مقدار پیش‌بینی - استفاده از تمام grids
+                    row[predictField] = evaluateFormulaAcrossSheets(row.FormulaExpression, predictField);
+                });
+            }
         });
-        
+
         grid.refresh();
     }
+
+    // تابع محاسبه فرمول با جستجو در تمام شیت‌ها
+    function evaluateFormulaAcrossSheets(formulaExpression, fieldName) {
+        try {
+            let expression = formulaExpression;
+
+            // پیدا کردن تمام متغیرها در فرمول
+            const variablePattern = /[A-Za-z_][A-Za-z0-9_]*/g;
+            const variables = expression.match(variablePattern) || [];
+            const uniqueVariables = [...new Set(variables)];
+
+            // جایگزینی هر متغیر با مقدارش
+            uniqueVariables.forEach(variable => {
+                //const itemNameWithoutNumber = variable.replace(/\d+$/, '');
+                let value = 0;
+                let found = false;
+
+                // جستجو در تمام grid های موجود
+                Object.keys(sheetGrids).forEach(sheetId => {
+                    if (found) return;
+
+                    const grid = sheetGrids[sheetId];
+                    const dataSource = grid.option('dataSource');
+                    const item = dataSource.find(i => i.ItemName === variable /*|| i.ItemName === itemNameWithoutNumber*/);
+
+                    if (item) {
+                        value = item[fieldName] || 0;
+                        found = true;
+                    }
+                });
+
+                // جایگزینی نام متغیر با مقدار
+                const regex = new RegExp('\\b' + variable + '\\b', 'g');
+                expression = expression.replace(regex, '(' + value.toString() + ')');
+
+                if (!found) {
+                    console.warn('Item not found for variable:', variable, 'in formula:', formulaExpression);
+                }
+            });
+
+            // محاسبه فرمول
+            const result = eval(expression);
+            return isNaN(result) ? 0 : result;
+        } catch (error) {
+            console.error('Error evaluating formula:', formulaExpression, 'Expression:', expression, error);
+            return 0;
+        }
+    }
+
+    
 function getHistoricalValue(itemId, fiscalYear) {
     let data = [];
     if (fiscalYear === selectedFiscalYear - 2) {

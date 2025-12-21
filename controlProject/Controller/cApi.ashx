@@ -39,6 +39,14 @@ public class cApiHandler : IHttpHandler
                 int.TryParse(context.Request.QueryString["fiscalYear"], out int fiscalYear);
                 result = getTimePeriods(fiscalYear);
                 break;
+            case "getbudgetdata":
+                int.TryParse(context.Request.QueryString["fiscalYear"], out int budgetYear);
+                int sheetId = 0, catId = 0;
+                int.TryParse(context.Request.QueryString["sheetId"], out sheetId);
+                int.TryParse(context.Request.QueryString["categoryId"], out catId);
+                string periodType = context.Request.QueryString["periodType"] ?? "Monthly";
+                result = getBudgetData(budgetYear, sheetId, catId, periodType);
+                break;
             case "addstaticitem":
                 string addItemData = "";
                 using (var reader = new System.IO.StreamReader(context.Request.InputStream))
@@ -402,6 +410,63 @@ public class cApiHandler : IHttpHandler
                         ["success"] = rowsAffected > 0,
                         ["message"] = rowsAffected > 0 ? "آیتم با موفقیت حذف شد" : "آیتم یافت نشد"
                     };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return new JObject
+            {
+                ["success"] = false,
+                ["error"] = ex.Message
+            };
+        }
+    }
+    
+    private static JObject getBudgetData(int fiscalYear, int sheetId, int categoryId, string periodType)
+    {
+        if (fiscalYear <= 0)
+            return new JObject { ["success"] = false, ["error"] = "سال مالی الزامی است" };
+            
+        if (sheetId <= 0 && categoryId <= 0)
+            return new JObject { ["success"] = false, ["error"] = "شناسه شیت یا دسته‌بندی الزامی است" };
+
+        try
+        {
+            
+            string connectionString = ConfigurationManager.ConnectionStrings["DBCnn"].ConnectionString;
+            
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+            
+                using (SqlCommand command = new SqlCommand("[HitcoControl]..[getBudgetData]", connection))
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+            
+                    // Add parameters to the stored procedure
+                    command.Parameters.Add(new SqlParameter("@FiscalYear", SqlDbType.Int)).Value = fiscalYear;
+                    command.Parameters.Add(new SqlParameter("@SheetID", SqlDbType.Int)).Value = sheetId;
+                    command.Parameters.Add(new SqlParameter("@CategoryID", SqlDbType.Int)).Value = categoryId;
+                    command.Parameters.Add(new SqlParameter("@PeriodType", SqlDbType.NVarChar, 50)).Value = periodType ?? "Monthly";
+                    DataSet dataSet = new DataSet();
+                    SqlDataAdapter adapter = new SqlDataAdapter(command);
+                    adapter.Fill(dataSet);
+
+                    return new JObject
+                    {
+                        ["success"] = true,
+                        ["data"] = JArray.FromObject(dataSet.Tables[0]),
+                        ["count"] = dataSet.Tables[0].Rows.Count,
+                    };
+                    // Execute the stored procedure and read the results
+                    /*using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            // Process the results here
+                        }
+                    }*/
                 }
             }
         }

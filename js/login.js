@@ -76,8 +76,15 @@ function valLoginInput(){
                 $("#toast").css("border", "2px solid #48BB78")
                 showToast(result.message)
                 
-                    //window.location.href = "home.aspx";
+                //window.location.href = "home.aspx";
+                const params = new URLSearchParams(window.location.search);
+                const returnUrl = params.get('returnUrl');
+
+                if (returnUrl) {
+                    window.location.href = decodeURIComponent(returnUrl);
+                } else {
                     window.location.href = "mainDashboard.aspx";
+                }
                 
             } else (
                 showToast(result.message)
