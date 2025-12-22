@@ -153,21 +153,20 @@ function createProductDefinitionGridCols(brandsData){
         }
     ];
 }
-function createBomDetailCols(quantityCaption){
+function createBomDetailCols(quantityCaption, packagesQty){
     return [
         {
             dataField: 'CategoryFa',
             caption: 'دسته‌بندی',
-            width: 200,
             calculateCellValue: function(rowData) {
-                if (rowData.RecordType) {
-                    const match = packagingCategories.find(p => p.pkgEn === rowData.RecordType);
-                    return match ? `تعداد در ${match.pkgFa}` : rowData.CategoryFa;
-                }
+                const match = packagingCategories.find(p => p.pkgEn === rowData.RecordType);
+                if(match) return match.pkgFa;
+                if(rowData.RecordType == "SecondaryLevel") return rowData.CategoryFa + ` (بسته بندی ثانویه)`;
+                if(rowData.RecordType == "MasterLevel") return rowData.CategoryFa + ` (بسته بندی مادر)`;
                 return rowData.CategoryFa;
             }
         },
-        {   dataField: 'Name', caption: 'نام محصول' ,
+        {   dataField: 'Name', caption: 'نام' ,
             cellTemplate: function(container, options) {
                 let color = "unset";
                 if(options.data.SrcIngredients === 'Finance'){
@@ -186,7 +185,6 @@ function createBomDetailCols(quantityCaption){
         {
             dataField: 'partUnitRef',
             caption: 'واحد',
-            width: 100,
             calculateCellValue: function(rowData) {
                 if (rowData.partUnitRef) {
                     const unit = unitsData.find(u => u.partUnitCode == rowData.partUnitRef);
@@ -195,7 +193,21 @@ function createBomDetailCols(quantityCaption){
                 return '';
             }
         },
-        { dataField: 'Quantity', caption: quantityCaption, format: { type: 'fixedPoint', precision: 2 } }
+        {   dataField: 'Quantity'
+            , caption: quantityCaption
+            , format: { type: 'fixedPoint', precision: 3 } 
+            ,calculateCellValue: function(rowData) {
+                let unitName = "واحد";
+                if (rowData.partUnitRef) {
+                    const unit = unitsData.find(u => u.partUnitCode == rowData.partUnitRef);
+                    if(unit) unitName = unit.partUnitName;
+                }
+                if(rowData.RecordType == "MainLevel") return rowData.Quantity + " (" + (rowData.Quantity * packagesQty["PrimaryPackQty"]).toFixed(3) + " " + unitName + " در محصول اصلی)";
+                if(rowData.RecordType == "SecondaryLevel") return rowData.Quantity + " (" + (rowData.Quantity / packagesQty["SecondaryPackQty"]).toFixed(3) + " " + unitName + " در بسته بندی ثانویه)";
+                if(rowData.RecordType == "MasterLevel") return rowData.Quantity + " (" + (rowData.Quantity / (packagesQty["MasterPackQty"] * packagesQty["SecondaryPackQty"])).toFixed(3) + " " + unitName + " در بسته بندی مادر)";
+                return rowData.Quantity;
+            }
+        }
     ]
 }
 function createBomInsertCols(categories){

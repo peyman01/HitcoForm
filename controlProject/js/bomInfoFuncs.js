@@ -50,18 +50,24 @@ function createDetailGrid(container, masterData) {
         success: function(response) {
             if (response.success) {
                 // Get main product unit name
-                let mainUnitName = '';
-                if (masterData.partUnitRef) {
+                /*if (masterData.partUnitRef) {
                     const unit = unitsData.find(u => u.partUnitCode == masterData.partUnitRef);
                     mainUnitName = unit ? unit.partUnitName : '';
                 }
-                const quantityCaption = mainUnitName ? `مقدار در 1 ${mainUnitName} محصول اصلی` : 'مقدار';
+                const quantityCaption = mainUnitName ? `مقدار در 1 ${mainUnitName} محصول اصلی` : 'مقدار';*/
+                const quantityCaption = 'تعداد / مقدار';
+                const packagesQty = {};
+                packagesQty["PrimaryPackQty"] = response?.data?.find(d => d.RecordType === "PrimaryPackQty")?.Quantity || 1;
+                packagesQty["SecondaryPackQty"] = response?.data?.find(d => d.RecordType === "SecondaryPackQty")?.Quantity || 1;
+                packagesQty["MasterPackQty"] = response?.data?.find(d => d.RecordType === "MasterPackQty")?.Quantity || 1;
+                
                 container.dxDataGrid({
                     dataSource: response.data,
                     rtlEnabled: true,
                     showBorders: true,
                     allowColumnResizing: true,
-                    columns: createBomDetailCols(quantityCaption),
+                    columnAutoWidth: true,
+                    columns: createBomDetailCols(quantityCaption, packagesQty),
                     paging: { enabled: false },
                     onRowPrepared: function(e) {
                         if (e.rowType === 'data') {
@@ -339,7 +345,7 @@ function createBomForm(container) {
     masterPackagingGrid = initializeInsertBomGrids(bomCategories.filter(x => x.categoryType == 'packaging'), "masterPackagingGrid", updateMasterGridCalculations)
 }
 let bomDetailsPopup;
-
+let proformaCurrencyRates = {};
 function showBomDetails(data) {
     loader("show");
 
@@ -361,6 +367,9 @@ function showBomDetails(data) {
                         resizeEnabled: true
                     }).dxPopup("instance");
                 }
+                const PrimaryPackQty = response.data.find(p => p.RecordType == 'PrimaryPackQty')?.Quantity || 1;
+                const SecondaryPackQty = response.data.find(p => p.RecordType == 'SecondaryPackQty')?.Quantity || 1;
+                const MasterPackQty = response.data.find(p => p.RecordType == 'MasterPackQty')?.Quantity || 1;
 
                 bomDetailsPopup.option('contentTemplate', function(contentElement) {
                     // ساخت TabPanel
@@ -498,11 +507,9 @@ function showBomDetails(data) {
                                                 min: newUSDRate * 0.5,
                                                 max: newUSDRate * 1.5
                                             });
-
                                             recalculateAnalysis();
-
-                                            loader('hide');
                                         }
+                                        loader('hide');
                                     },
                                     error: function() {
                                         DevExpress.ui.notify('خطا در دریافت نرخ ارز', 'error', 3000);
@@ -603,8 +610,12 @@ function showBomDetails(data) {
                             let totalUSDFree = 0;
                             const categoryTotals = {};
 
-                            // پیدا کردن تمام آیتم‌های BOM از تب قبل
-                            const bomItems = response.data.filter(item => !item.RecordType);
+                            // پیدا کردن تمام آیتم‌های BOM (MainLevel, SecondaryLevel, MasterLevel)
+                            const bomItems = response.data.filter(item =>
+                                item.RecordType === 'MainLevel' ||
+                                item.RecordType === 'SecondaryLevel' ||
+                                item.RecordType === 'MasterLevel'
+                            );
 
                             let itemsHTML = '';
                             bomItems.forEach((item, index) => {
@@ -621,23 +632,13 @@ function showBomDetails(data) {
                                 const currencyId = currencyInstance.option('value');
                                 const currencySrcId = currencySrcInstance.option('value');
                                 const quantity = parseFloat($(`#item_Quantity_${index}`).val()) || 0;
-                                const dividedBy = $(`#item_dividedBy_${index}`).val() || "";
-
-                                // محاسبه devide
-                                let devide = 1;
-                                const packagingItems = response.data.filter(item => item.RecordType);
-                                if (dividedBy) {
-                                    devide = dividedBy.split("*")
-                                    .map(type => packagingItems.find(p => p.RecordType === type)?.Quantity || 1)
-                                    .reduce((acc, val) => acc * val, 1);
-                                }
-
+                                
                                 // اعمال تغییر قیمت از slider
                                 const priceChange = itemPriceChanges[index] || 1;
                                 const adjustedUnitPrice = baseUnitPrice * priceChange;
 
                                 // محاسبه قیمت کل ارزی
-                                const totalFX = adjustedUnitPrice * quantity / devide;
+                                const totalFX = adjustedUnitPrice * quantity;
 
                                 // تبدیل به ریال با نرخ جدید
                                 let totalIRRItem = 0;
@@ -650,7 +651,7 @@ function showBomDetails(data) {
                                     else if (currencySrcId == 51) rate = currencyRate.TarjihiRate;
                                     else if (currencySrcId == 52) rate = currencyRate.NimaRate;
                                     else if (currencySrcId == 147) rate = currencyRate.SanaRate;
-                                    else if (currencySrcId == 148) rate = currencyRate.Mobadele;
+                                    else if (currencySrcId == 148) rate = currencyRate.MobadeleRate;
 
                                     // اگر دلار آزاد انتخاب شده، از نرخ slider استفاده کن
                                     if (currencyId == 72 && currencySrcId == 53) {
@@ -982,393 +983,499 @@ function showBomDetails(data) {
                         // محاسبه اولیه
                         setTimeout(() => recalculateAnalysis(), 500);
                     }
-
                     // تابع برای ساخت تب جزئیات
-                    function createDetailsTab(container) {
+                    function createDetailsTab(container) {  
+                        proformaCurrencyRates = {};
                         // ساخت ScrollView برای محتوا
                         const $scrollView = $('<div>').dxScrollView({
-                        height: '100%',
-                        width: '100%',
-                        direction: 'both',
-                        showScrollbar: 'onScroll'
-                    });
+                            height: '100%',
+                            width: '100%',
+                            direction: 'both',
+                            showScrollbar: 'onScroll'
+                        });
 
-                    let html = `
-                        <div style="padding: 24px;">
-                            <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                                <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 8px;">محصول اصلی:</div>
-                                <div style="font-size: 15px; color: #475569;">${data.pName}</div>
-                    `;
-                    let unitName = "واحد";
-                    // نمایش واحد اگر وجود داشت
-                    if (data.partUnitRef) {
-                        const unit = unitsData.find(u => u.partUnitCode == data.partUnitRef);
-                        unitName = unit ? unit.partUnitName : data.partUnitRef;
-                        html += `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">واحد: ${unitName}</div>`;
-                    }
+                        let html = `
+                            <div style="padding: 24px;">
+                                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                                    <div style="font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 8px;">محصول اصلی:</div>
+                                    <div style="font-size: 15px; color: #475569;">${data.pName}</div>
+                        `;
+                        let unitName = "واحد";
+                        // نمایش واحد اگر وجود داشت
+                        if (data.partUnitRef) {
+                            const unit = unitsData.find(u => u.partUnitCode == data.partUnitRef);
+                            unitName = unit ? unit.partUnitName : data.partUnitRef;
+                            html += `<div style="font-size: 13px; color: #64748b; margin-top: 4px;">واحد: ${unitName}</div>`;
+                        }
 
-                    html += `
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                                <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">مواد اولیه:</div>
-                                <div id="bomItemsList" style="margin: 0;">
-                    `;
-
-                    // فیلتر کردن آیتم‌های غیر بسته‌بندی
-                    const bomItems = response.data.filter(item => !item.RecordType);
-
-                    if (bomItems.length === 0) {
-                        html += `<div style="padding: 12px; color: #94a3b8; text-align: center;">هیچ آیتمی ثبت نشده است</div>`;
-                    }
-
-                    html += `
+                        html += `</div>`;
+                        html += `
+                        <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea; border-radius:12px;padding:12px 16px;box-shadow:0 4px 12px rgba(16,185,129,0.2);margin-bottom:16px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <svg style="width:20px;height:20px;fill:#059669;" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+                                    </svg>
+                                    <span style="font-size:13px;font-weight:600;">هزینه تمام‌شده محصول اصلی</span>
+                                </div>
+                                <div style="display:flex;gap:20px;align-items:center;">
+                                    <div style="text-align:left;">
+                                        <div id="totalProducrCostIrr" style="font-size:16px;font-weight:700; line-height:1.2;"></div>
+                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">ریال (به نرخ تاریخ سفارش‌ها)</div>
+                                    </div>
+                                    <div style="width:1px;height:32px;background:rgba(0,0,0,0.3);"></div>
+                                    <div style="text-align:left;">
+                                        <div id="totalProducrCostIrrToday" style="font-size:16px;font-weight:700; line-height:1.2;"></div>
+                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">ریال (به نرخ امروز)</div>
+                                    </div>
+                                    <div style="width:1px;height:32px;background:rgba(0,0,0,0.3);"></div>
+                                    <div style="text-align:left;">
+                                        <div id="totalProducrCostUsd" style="font-size:16px;font-weight:700; line-height:1.2;"></div>
+                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">دلار آزاد</div>
+                                    </div>
                                 </div>
                             </div>
-                    `;
+                        </div>`;
 
-                    const $itemsList = $(html);
-                    const $bomItemsContainer = $itemsList.find('#bomItemsList');
-
-                    const updatePrices = function(rowElement, sourceField, itemIndex) {
-                        
-                        const $row = $(rowElement);
-
-                        // فقط اگر قیمت دلخواه انتخاب شده باشه
-                        const selectedProformaValue = $row.find(`#proformaSelect_${itemIndex}`).dxSelectBox('option', 'value');
-                        if (selectedProformaValue !== 'manual') {
-                            return;
-                        }
-                        if ($row.data('updating')) return;
-                        $row.data('updating', true);
-
-                        try {
-                            const productQuantity = parseFloat($row.find(`#item_Quantity_${itemIndex}`).val()) || 0;
-                            const dividedBy = $row.find(`#item_dividedBy_${itemIndex}`).val() || "";
-                            
-                            let priceUnitFX = $row.find(`#priceUnitFX_${itemIndex}`).dxNumberBox('option', 'value') || 0;
-                            let baseIdCurrency = $row.find(`#currencySelect_${itemIndex}`).dxSelectBox('option', 'value');
-                            let baseIdCurrencySrc = $row.find(`#currencySrcSelect_${itemIndex}`).dxSelectBox('option', 'value');
-
-                            // اگر ارز انتخاب نشده، دلار آزاد رو انتخاب کن
-                            if (!baseIdCurrency) {
-                                $row.find(`#currencySelect_${itemIndex}`).dxSelectBox('option', 'value', 72); //USD
-                                baseIdCurrency = 72;
-                            }
-
-                            if (!baseIdCurrencySrc) {
-                                $row.find(`#currencySrcSelect_${itemIndex}`).dxSelectBox('option', 'value', 53); //Free
-                                baseIdCurrencySrc = 53;
-                            }
-
-                            const currencyRate = currencyRates.find(cr => cr.baseId === baseIdCurrency);
-
-                            if (currencyRate && productQuantity > 0) {
-                                let rate = 0;
-
-                                if (baseIdCurrencySrc == 53) rate = currencyRate.FreeRate;
-                                else if (baseIdCurrencySrc == 51) rate = currencyRate.TarjihiRate;
-                                else if (baseIdCurrencySrc == 52) rate = currencyRate.NimaRate;
-                                else if (baseIdCurrencySrc == 147) rate = currencyRate.SanaRate;
-                                else if (baseIdCurrencySrc == 148) rate = currencyRate.Mobadele;
-                                const packagingItems = response.data.filter(item => item.RecordType);
-                                if (rate > 0) {
-                                    // محاسبه قیمت کل ارزی = قیمت واحد × تعداد
-                                    let devide = 1;
-                                    if (dividedBy) {
-                                        devide = dividedBy.split("*")
-                                        .map(type => {
-                                            return packagingItems.find(p => p.RecordType === type)?.Quantity || 1;
-                                        })
-                                        .reduce((acc, val) => acc * val, 1);
-                                    }
-                                    const priceFX = priceUnitFX * productQuantity / devide;
-                                    $row.find(`#priceFX_${itemIndex}`).dxNumberBox('option', 'value', priceFX);
-
-                                    // محاسبه قیمت کل ریالی = قیمت کل ارزی × نرخ
-                                    const priceIRR = priceFX * rate;
-                                    $row.find(`#priceIRR_${itemIndex}`).dxNumberBox('option', 'value', priceIRR);
-                                }
-                            }
-
-                            // محاسبه مجموع هزینه‌ها
-                            // calculateTotalCosts();
-
-                        } finally {
-                            setTimeout(() => {
-                                $row.data('updating', false);
-                            }, 100);
-                        }
-                    };
-
-                    if (bomItems.length > 0) {
-                        bomItems.forEach((item, index) => {
-                            const productTypeColor = item.SrcIngredients === 'Finance' ? '#22c55e' : '#9ca3af';
-                            const unitName = item.partUnitRef ? (unitsData.find(u => u.partUnitCode == item.partUnitRef)?.partUnitName || '') : '';
-                            const categoryColor = item.color || '#f8fafc';
-
-                            const relatedProformas = partProformaData.filter(p =>
-                                p.SrcProduct === item.SrcIngredients &&
-                                p.SrcProductId === item.SrcIngredientsProductId
-                            );
-                            const $itemRow = $(`
-                                <div style="padding: 12px; margin-bottom: 8px; background: ${categoryColor}; border-radius: 8px;">
-                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${productTypeColor}; flex-shrink: 0;"></span>
-                                        <div style="flex: 1;">
-                                            <div style="font-weight: 600; color: #1e293b;">${item.Name || '-'}</div>
-                                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-                                                دسته‌بندی: ${item.CategoryFa || '-'} |
-                                                مقدار: ${item.Quantity || 0} ${unitName}
+                        html += `
+                                <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea; border-radius:12px;padding:10px 16px;box-shadow:0 4px 12px rgba(59,130,246,0.2);margin-bottom:16px;">
+                                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                        <div style="display:flex;align-items:center;gap:6px;">
+                                            <svg style="width:18px;height:18px;fill:#2563eb;" viewBox="0 0 24 24">
+                                                <path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/>
+                                            </svg>
+                                            <span style="font-size:12px;font-weight:600;">اطلاعات بسته‌بندی</span>
+                                        </div>
+                                        <div style="flex:1;display:flex;gap:12px;align-items:center;justify-content:flex-start;">
+                                            <div style="display:flex;align-items:center;gap:6px;">
+                                                <span style="color:rgba(0,0,0,0.9);font-size:11px;">تعداد/مقدار محصول اصلی در بسته‌بندی اولیه:</span>
+                                                <span style="font-size:15px;font-weight:700;">${PrimaryPackQty}</span>
+                                            </div>
+                                            <div style="width:1px;height:20px;background:rgba(255,255,255,0.3);"></div>
+                                            <div style="display:flex;align-items:center;gap:6px;">
+                                                <span style="color:rgba(0,0,0,0.9);font-size:11px;">تعداد بسته‌بندی اولیه در بسته‌بندی ثانویه:</span>
+                                                <span style="font-size:15px;font-weight:700;">${SecondaryPackQty}</span>
+                                            </div>
+                                            <div style="width:1px;height:20px;background:rgba(255,255,255,0.3);"></div>
+                                            <div style="display:flex;align-items:center;gap:6px;">
+                                                <span style="color:rgba(0,0,0,0.9);font-size:11px;">تعداد بسته‌بندی ثانویه در بسته‌بندی مادر:</span>
+                                                <span style="font-size:15px;font-weight:700;">${MasterPackQty}</span>
                                             </div>
                                         </div>
-                                        <input type="hidden" value="${item.Quantity}" id="item_Quantity_${index}" />
-                                        <input type="hidden" value="${(item.dividedBy || "")}" id="item_dividedBy_${index}" />
-                                        
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: flex-end; margin-right: 20px;">
-                                        <div style="flex: 1; min-width: 250px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">انتخاب سفارش</div>
-                                            <div id="proformaSelect_${index}"></div>
-                                        </div>
-                                        <div style="width: 120px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت واحد ارزی</div>
-                                            <div id="priceUnitFX_${index}"></div>
-                                        </div>
-                                        <div style="width: 150px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت کل ریالی (به نرخ امروز)</div>
-                                            <div id="priceIRR_${index}"></div>
-                                        </div>
-                                        <div style="width: 120px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت کل ارزی</div>
-                                            <div id="priceFX_${index}"></div>
-                                        </div>
-                                        <div style="width: 120px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">ارز</div>
-                                            <div id="currencySelect_${index}"></div>
-                                        </div>
-                                        <div style="width: 120px;">
-                                            <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">منبع ارز</div>
-                                            <div id="currencySrcSelect_${index}"></div>
-                                        </div>
                                     </div>
                                 </div>
-                            `);
-                            $bomItemsContainer.append($itemRow);
-                            $itemRow.find(`#proformaSelect_${index}`).dxSelectBox({
-                                dataSource: [{partNo: 'manual',manual: true}].concat(relatedProformas),
-                                /*displayExpr: function(item) {
-                                    if (!item) return '';
-                                    return item.manual ? `قیمت دلخواه` :
-                                    `${item.PINumber || '-'} | ${item.batchNo || '-'} | ${item.subPartNo || '-'}`;
-                                },*/
-                                itemTemplate: function(itemData, itemIndex, itemElement) {
-                                    if (!itemData) return "";
-                                    if (itemData.manual) {
-                                        return $("<div>")
-                                        .append($("<strong>").text("قیمت دلخواه"));
-                                    } else {
-                                        return $("<div>")
-                                        .append(
-                                        $("<span>").html("<font color='blue'>شماره سفارش: </font>"+itemData.PINumber || "-"),
-                                        $("<span style='margin-right: 10px;'>").html(
-                                            " | " +"<font color='blue'>بچ: </font>"+(itemData.batchNo || "-") 
-                                            + " | " + "<font color='blue'>پارت: </font>"+(itemData.partNo || "-") 
-                                            + " | " + "<font color='blue'>بخش: </font>"+(itemData.subPartNo || "-")
-                                            + " | " + "<font color='blue'>تاریخ: </font>"+(itemData.shamsi || "-")
-                                        ),
-                                        $("<br>"),
-                                        $("<small>").html(
-                                            "<font color='blue'>قیمت: </font>"
-                                            + (itemData.FXProductUnitPrice ? 
-                                                itemData.FXProductUnitPrice + " " + (itemData.currencyName || "") + " " + (itemData.currencySrc || "")
-                                                + " | " + "<font color='blue'>معادل ریالی: </font>"+(itemData.FXProductUnitPriceIRR || "-").toLocaleString() + " (به نرخ امروز)"
-                                            :"-")
-                                        ),
-                                        $("<br>"),
-                                        $("<small>").html(
-                                            "<font color='blue'>هزینه: </font>"
-                                            + (itemData.partOtherCost ? 
-                                                itemData.partOtherCost + " " + (itemData.currencyName || "") + " " + (itemData.currencySrc || "")
-                                                + " | " + "<font color='blue'>معادل ریالی: </font>"+(itemData.partOtherCostIRR || "-").toLocaleString() + " (به نرخ امروز)"
-                                            :"-")
-                                        ),
-                                        );
-                                    }
-                                },
-                                fieldTemplate: function(selectedItem, container) {
-                                    if (!selectedItem) {
-                                        container.append(
-                                            $("<div>").dxTextBox({ value: "", readOnly: true })
-                                        );
-                                        return;
-                                    }
 
-                                    if (selectedItem.manual) {
-                                        container.append(
-                                            $("<div>").dxTextBox({
-                                                value: "قیمت دلخواه",
-                                                readOnly: true
-                                            })
-                                        );
-                                        return;
-                                    }
+                                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                                    <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">مواد اولیه:</div>
+                                    <div id="bomItemsList" style="margin: 0;">
+                        `;
 
-                                    var text = 
-                                        "شماره سفارش: " + (selectedItem.PINumber || "-") +
-                                        " | بچ: " + (selectedItem.batchNo || "-") +
-                                        " | پارت: " + (selectedItem.partNo || "-") +
-                                        " | بخش: " + (selectedItem.subPartNo || "-");
+                        // فیلتر کردن آیتم‌های اصلی (MainLevel, SecondaryLevel, MasterLevel)
+                        const bomItems = response.data.filter(item =>
+                            item.RecordType === 'MainLevel' ||
+                            item.RecordType === 'SecondaryLevel' ||
+                            item.RecordType === 'MasterLevel'
+                        );
 
-                                    container.append(
-                                        $("<div>").dxTextBox({
-                                            value: text,
-                                            readOnly: true,
-                                            stylingMode: "outlined"
-                                        })
-                                    );
-                                },
 
-                                valueExpr: 'partNo',
-                                placeholder: 'انتخاب سفارش',
-                                rtlEnabled: true,
-                                searchEnabled: true,
-                                stylingMode: "outlined",
-                                
-                                onValueChanged: function(e) {
-                                    $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('instance').option('value', null);
-                                    $itemRow.find(`#priceIRR_${index}`).dxNumberBox('instance').option('value', null);
-                                    $itemRow.find(`#priceFX_${index}`).dxNumberBox('instance').option('value', null);
-                                    $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('instance').option('value', null);
-                                    $itemRow.find(`#currencySelect_${index}`).dxSelectBox('instance').option('value', null);
-                                    $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('option', 'readOnly', true);
-                                    $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('option', 'readOnly', true);
-                                    $itemRow.find(`#currencySelect_${index}`).dxSelectBox('option', 'readOnly', true);
-                                    $itemRow.find(`#priceIRR_${index}`).dxNumberBox('option', 'readOnly', true);
-                                    $itemRow.find(`#priceFX_${index}`).dxNumberBox('option', 'readOnly', true);
-                                    if (e.value) {
-                                        if (e.value === 'manual') {
-                                            // اگر قیمت دلخواه انتخاب شد - فقط قیمت واحد ارزی قابل ویرایش
-                                            $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('option', 'readOnly', false);
-                                            $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('option', 'readOnly', false);
-                                            $itemRow.find(`#currencySelect_${index}`).dxSelectBox('option', 'readOnly', false);
-                                        }
-                                        else{
-                                            const selectedProforma = relatedProformas.find(p => p.partNo === e.value);
-                                            if (selectedProforma) {
-                                                const productQuantity = parseFloat($itemRow.find(`#item_Quantity_${index}`).val()) || 0;
-                                                const dividedBy = $itemRow.find(`#item_dividedBy_${index}`).val() || "";
+                        if (bomItems.length === 0) {
+                            html += `<div style="padding: 12px; color: #94a3b8; text-align: center;">هیچ آیتمی ثبت نشده است</div>`;
+                        }
 
-                                                // ست کردن قیمت واحد ارزی
-                                                $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('instance').option('value', selectedProforma.FXProductUnitPrice);
+                        html += `
+                                    </div>
+                                </div>
+                        `;
 
-                                                // محاسبه قیمت کل ریالی
-                                                let devide = 1;
-                                                if (dividedBy) {
-                                                    devide = dividedBy.split("*")
-                                                    .map(type => {
-                                                        return packagingItems.find(p => p.RecordType === type)?.Quantity || 1;
-                                                    })
-                                                    .reduce((acc, val) => acc * val, 1);
-                                                }
-                                                let irrVal = selectedProforma.FXProductUnitPriceIRR * productQuantity / devide;
-                                                $itemRow.find(`#priceIRR_${index}`).dxNumberBox('instance').option('value', irrVal);
+                        const $itemsList = $(html);
+                        const $bomItemsContainer = $itemsList.find('#bomItemsList');
 
-                                                // محاسبه قیمت کل ارزی
-                                                let fxVal = selectedProforma.FXProductUnitPrice * productQuantity / devide;
-                                                $itemRow.find(`#priceFX_${index}`).dxNumberBox('instance').option('value', fxVal);
+                        const updatePrices = function(rowElement, sourceField, itemIndex, proformaCurrencyRates={}) {
+                            
+                            const $row = $(rowElement);
 
-                                                // انتخاب ارز (بر اساس FXTypeId)
-                                                const currencyItem = CurrencyData.find(c => c.value === selectedProforma.FXTypeId);
-                                                if (currencyItem) {
-                                                    $itemRow.find(`#currencySelect_${index}`).dxSelectBox('instance').option('value', currencyItem.baseId);
-                                                }
+                            // فقط اگر قیمت دلخواه انتخاب شده باشه
+                            const selectedProformaValue = $row.find(`#proformaSelect_${itemIndex}`).dxSelectBox('option', 'value');
+                            if (selectedProformaValue !== 'manual' && sourceField !== 'currencySrc') {
+                                return;
+                            }
+                            if ($row.data('updating')) return;
+                            $row.data('updating', true);
 
-                                                // انتخاب منبع ارز (بر اساس FXTypeSrc)
-                                                const currencySrcItem = CurrencySrcData.find(cs => cs.value === selectedProforma.FXTypeSrc);
-                                                if (currencySrcItem) {
-                                                    $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('instance').option('value', currencySrcItem.baseId);
-                                                }
+                            try {
+                                const productQuantity = parseFloat($row.find(`#item_Quantity_${itemIndex}`).val()) || 0;
+                                const totalPackQty = $row.find(`#item_totalPackQty_${itemIndex}`).val() || 0;
+                                let priceUnitFX = $row.find(`#priceUnitFX_${itemIndex}`).dxNumberBox('option', 'value') || 0;
+                                let baseIdCurrency = $row.find(`#currencySelect_${itemIndex}`).dxSelectBox('option', 'value');
+                                let baseIdCurrencySrc = $row.find(`#currencySrcSelect_${itemIndex}`).dxSelectBox('option', 'value');
+
+                                // اگر ارز انتخاب نشده، دلار آزاد رو انتخاب کن
+                                if (!baseIdCurrency) {
+                                    $row.find(`#currencySelect_${itemIndex}`).dxSelectBox('option', 'value', 72); //USD
+                                    baseIdCurrency = 72;
+                                }
+
+                                if (!baseIdCurrencySrc) {
+                                    $row.find(`#currencySrcSelect_${itemIndex}`).dxSelectBox('option', 'value', 53); //Free
+                                    baseIdCurrencySrc = 53;
+                                }
+
+                                const currencyRate = currencyRates.find(cr => cr.baseId === baseIdCurrency);
+
+                                if (currencyRate && productQuantity > 0) {
+                                    let rate = 0;
+                                    let matchRateType = "FreeRate";
+                                    if (baseIdCurrencySrc == 53) matchRateType = "FreeRate";
+                                    else if (baseIdCurrencySrc == 51) matchRateType = "TarjihiRate";
+                                    else if (baseIdCurrencySrc == 52) matchRateType = "NimaRate";
+                                    else if (baseIdCurrencySrc == 147) matchRateType = "SanaRate";
+                                    else if (baseIdCurrencySrc == 148) matchRateType = "MobadeleRate";
+                                    rate = currencyRate[matchRateType] || 0;
+                                    if (rate > 0) {
+                                        const priceFX = priceUnitFX * totalPackQty;
+                                        $row.find(`#priceFX_${itemIndex}`).dxNumberBox('option', 'value', priceFX);
+
+                                        // محاسبه قیمت کل ریالی = قیمت کل ارزی × نرخ
+                                        let priceIRR = priceFX * rate;
+                                        $row.find(`#priceIRRToday_${itemIndex}`).dxNumberBox('option', 'value', priceIRR);
+                                        if(selectedProformaValue == 'manual') $row.find(`#priceIRR_${itemIndex}`).dxNumberBox('option', 'value', priceIRR);
+                                        else if(sourceField == 'currencySrc'){
+                                            if(Object.keys(proformaCurrencyRates).length == 0) return;
+                                            const curProformaCurrencyRate = proformaCurrencyRates?.[$row.find(`#proformaDate_${itemIndex}`).val()];
+                                            if(curProformaCurrencyRate){
+                                                const proformaDateCurrencyRate = curProformaCurrencyRate.find(cr => cr.baseId === baseIdCurrency);
+                                                priceIRR = priceFX * proformaDateCurrencyRate?.[matchRateType] || 0;
+                                                $row.find(`#priceIRR_${itemIndex}`).dxNumberBox('option', 'value', priceIRR);
                                             }
                                         }
                                     }
-
-                                    // محاسبه مجموع هزینه‌ها بعد از تغییر سفارش
-                                    // calculateTotalCosts();
                                 }
+                                calculateTotalCosts(bomItems);
+
+                            } finally {
+                                setTimeout(() => {
+                                    $row.data('updating', false);
+                                }, 100);
+                            }
+                        };
+                        if (bomItems.length > 0) {
+                            proformaCurrencyRates = {};
+                            bomItems.forEach((item, index) => {
+                                const productTypeColor = item.SrcIngredients === 'Finance' ? '#22c55e' : '#9ca3af';
+                                const unitName = item.partUnitRef ? (unitsData.find(u => u.partUnitCode == item.partUnitRef)?.partUnitName || '') : '';
+                                const categoryColor = item.color || '#f8fafc';
+
+                                const relatedProformas = partProformaData.filter(p =>
+                                    p.SrcProduct === item.SrcIngredients &&
+                                    p.SrcProductId === item.SrcIngredientsProductId
+                                );
+                                relatedProformas.forEach(rp => {
+                                    if(!proformaCurrencyRates[rp.proformaDate])
+                                    $.ajax({
+                                        url: 'Controller/cApiBom.ashx?action=getcurrencybydate&Date=' + rp.proformaDate,
+                                        type: 'GET',
+                                        dataType: 'json',
+                                        async: false,
+                                        success: function(currencyResponse) {
+                                            if (currencyResponse.success && currencyResponse.data) {
+                                                proformaCurrencyRates[rp.proformaDate] = currencyResponse.data;
+                                            }
+                                            loader('hide');
+                                        },
+                                        error: function() {
+                                            DevExpress.ui.notify('خطا در دریافت نرخ ارز', 'error', 3000);
+                                            loader('show');
+                                        }
+                                    });
+                                })
+                                let TotalPackQty = 0;
+                                if(item.RecordType == 'MainLevel') TotalPackQty = (item.Quantity || 0) * PrimaryPackQty;
+                                else if(item.RecordType == 'SecondaryLevel') TotalPackQty = (item.Quantity || 0) / SecondaryPackQty;
+                                else if(item.RecordType == 'MasterLevel') TotalPackQty = (item.Quantity || 0) / (MasterPackQty * SecondaryPackQty);
+                                const $itemRow = $(`
+                                    <div style="padding: 12px; margin-bottom: 8px; background: ${categoryColor}; border-radius: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                                            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${productTypeColor}; flex-shrink: 0;"></span>
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 600; color: #1e293b;">${item.Name || '-'}</div>
+                                                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                                    دسته‌بندی: ${item.CategoryFa || '-'} 
+                                                    ${item.RecordType == "SecondaryLevel" ? ` (بسته بندی ثانویه)`
+                                                        :
+                                                        item.RecordType == "MasterLevel" ? ` (بسته بندی مادر)`
+                                                        :``
+                                                    }
+                                                    |
+                                                    مقدار: ${item.Quantity || 0} ${unitName}
+                                                    (معادل ${TotalPackQty.toFixed(3)} ${unitName} در محصول اصلی)
+                                                </div>
+                                            </div>
+                                            <input type="hidden" value="${item.Quantity}" id="item_Quantity_${index}" />
+                                            <input type="hidden" value="${TotalPackQty}" id="item_totalPackQty_${index}" />
+                                            
+                                        </div>
+                                        <div style="display: flex; gap: 8px; align-items: flex-end; margin-right: 20px;">
+                                            <div style="flex: 1; min-width: 250px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">انتخاب سفارش</div>
+                                                <div id="proformaSelect_${index}"></div>
+                                            </div>
+                                            <div style="width: 120px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت واحد (ارزی)</div>
+                                                <div id="priceUnitFX_${index}"></div>
+                                            </div>
+                                            <div style="width: 150px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت کل ریالی 
+                                                    <span id="proformaDataFa_${index}">(تاریخ سفارش)</span>
+                                                </div>
+                                                <div id="priceIRR_${index}"></div>
+                                            </div>
+                                            <div style="width: 120px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت کل (ارزی)</div>
+                                                <div id="priceFX_${index}"></div>
+                                            </div>
+                                            <div style="width: 120px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">ارز</div>
+                                                <div id="currencySelect_${index}"></div>
+                                            </div>
+                                            <div style="width: 120px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">منبع ارز</div>
+                                                <div id="currencySrcSelect_${index}"></div>
+                                            </div>
+                                            <div style="width: 150px;">
+                                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 500;">قیمت کل ریالی (به نرخ امروز)</div>
+                                                <div id="priceIRRToday_${index}"></div>
+                                                <input type="hidden" id="proformaDate_${index}" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                `);
+                                $bomItemsContainer.append($itemRow);
+                                $itemRow.find(`#proformaSelect_${index}`).dxSelectBox({
+                                    dataSource: [{partNo: 'manual',manual: true}].concat(relatedProformas),
+                                    /*displayExpr: function(item) {
+                                        if (!item) return '';
+                                        return item.manual ? `قیمت دلخواه` :
+                                        `${item.PINumber || '-'} | ${item.batchNo || '-'} | ${item.subPartNo || '-'}`;
+                                    },*/
+                                    itemTemplate: function(itemData, itemIndex, itemElement) {
+                                        if (!itemData) return "";
+                                        if (itemData.manual) {
+                                            return $("<div>")
+                                            .append($("<strong>").text("قیمت دلخواه"));
+                                        } else {
+                                            return $("<div>")
+                                            .append(
+                                            $("<span>").html("<font color='blue'>شماره سفارش: </font>"+itemData.PINumber || "-"),
+                                            $("<br>"),
+                                            $("<span>").html(
+                                                "<font color='blue'>بچ: </font>"+(itemData.batchNo || "-") 
+                                                + " | " + "<font color='blue'>پارت: </font>"+(itemData.partNo || "-") 
+                                                + " | " + "<font color='blue'>بخش: </font>"+(itemData.subPartNo || "-")
+                                                + " | " + "<font color='blue'>تاریخ: </font>"+(itemData.shamsi || "-")
+                                            ),
+                                            $("<br>"),
+                                            $("<small>").html(
+                                                "<font color='blue'>قیمت: </font>"
+                                                + (itemData.FXProductUnitPrice ? 
+                                                    itemData.FXProductUnitPrice + " " + (itemData.currencyName || "") + " " + (itemData.currencySrc || "")
+                                                    + " | " + "<font color='blue'>معادل ریالی: </font>"+(itemData.FXProductUnitPriceIRR || "-").toLocaleString() + " (به نرخ تاریخ سفارش)"
+                                                :"-")
+                                            ),
+                                            $("<br>"),
+                                            $("<small>").html(
+                                                "<font color='blue'>هزینه: </font>"
+                                                + (itemData.partOtherCost ? 
+                                                    itemData.partOtherCost + " " + (itemData.currencyName || "") + " " + (itemData.currencySrc || "")
+                                                    + " | " + "<font color='blue'>معادل ریالی: </font>"+(itemData.partOtherCostIRR || "-").toLocaleString() + " (به نرخ امروز)"
+                                                :"-")
+                                            ),
+                                            );
+                                        }
+                                    },
+                                    fieldTemplate: function(selectedItem, container) {
+                                        if (!selectedItem) {
+                                            container.append(
+                                                $("<div>").dxTextBox({ value: "", readOnly: true })
+                                            );
+                                            return;
+                                        }
+
+                                        if (selectedItem.manual) {
+                                            container.append(
+                                                $("<div>").dxTextBox({
+                                                    value: "قیمت دلخواه",
+                                                    readOnly: true
+                                                })
+                                            );
+                                            return;
+                                        }
+
+                                        var text = 
+                                            "شماره سفارش: " + (selectedItem.PINumber || "-") +
+                                            " | بچ: " + (selectedItem.batchNo || "-") +
+                                            " | پارت: " + (selectedItem.partNo || "-") +
+                                            " | بخش: " + (selectedItem.subPartNo || "-");
+
+                                        container.append(
+                                            $("<div>").dxTextBox({
+                                                value: text,
+                                                readOnly: true,
+                                                stylingMode: "outlined"
+                                            })
+                                        );
+                                    },
+
+                                    valueExpr: 'partNo',
+                                    placeholder: 'انتخاب سفارش',
+                                    rtlEnabled: true,
+                                    searchEnabled: true,
+                                    stylingMode: "outlined",
+                                    
+                                    onValueChanged: function(e) {
+                                        $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('instance').option('value', null);
+                                        $itemRow.find(`#priceIRR_${index}`).dxNumberBox('instance').option('value', null);
+                                        $itemRow.find(`#priceIRRToday_${index}`).dxNumberBox('instance').option('value', null);
+                                        $itemRow.find(`#proformaDate_${index}`).val('');
+                                        $itemRow.find(`#priceFX_${index}`).dxNumberBox('instance').option('value', null);
+                                        $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('instance').option('value', null);
+                                        $itemRow.find(`#currencySelect_${index}`).dxSelectBox('instance').option('value', null);
+                                        $itemRow.find(`#proformaDataFa_${index}`).text('');
+                                        $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('option', 'readOnly', true);
+                                        //$itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('option', 'readOnly', true);
+                                        $itemRow.find(`#currencySelect_${index}`).dxSelectBox('option', 'readOnly', true);
+                                        $itemRow.find(`#priceIRR_${index}`).dxNumberBox('option', 'readOnly', true);
+                                        $itemRow.find(`#priceIRRToday_${index}`).dxNumberBox('option', 'readOnly', true);
+                                        $itemRow.find(`#priceFX_${index}`).dxNumberBox('option', 'readOnly', true);
+                                        if (e.value) {
+                                            if (e.value === 'manual') {
+                                                // اگر قیمت دلخواه انتخاب شد - فقط قیمت واحد ارزی قابل ویرایش
+                                                $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('option', 'readOnly', false);
+                                                //$itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('option', 'readOnly', false);
+                                                $itemRow.find(`#currencySelect_${index}`).dxSelectBox('option', 'readOnly', false);
+                                                $itemRow.find(`#proformaDataFa_${index}`).text('(نرخ امروز)');
+                                            }
+                                            else{
+                                                const selectedProforma = relatedProformas.find(p => p.partNo === e.value);
+                                                if (selectedProforma) {
+                                                    $itemRow.find(`#proformaDate_${index}`).val(selectedProforma.proformaDate);
+
+                                                    //const productQuantity = parseFloat($itemRow.find(`#item_Quantity_${index}`).val()) || 0;
+                                                    const totalPackQty = $itemRow.find(`#item_totalPackQty_${index}`).val() || "";
+
+                                                    // ست کردن قیمت واحد ارزی
+                                                    $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox('instance').option('value', selectedProforma.FXProductUnitPrice);
+                                                    const packagingItems = response.data.filter(item => item.RecordType === 'Packaging');
+                                                    // محاسبه قیمت کل ریالی
+                                                   
+                                                    let irrVal = selectedProforma.FXProductUnitPriceIRR * totalPackQty;
+                                                    $itemRow.find(`#priceIRR_${index}`).dxNumberBox('instance').option('value', irrVal);
+                                                    let irrValToday = selectedProforma.FXProductUnitPriceIRRToday * totalPackQty;
+                                                    $itemRow.find(`#priceIRRToday_${index}`).dxNumberBox('instance').option('value', irrValToday);
+
+                                                    // محاسبه قیمت کل ارزی
+                                                    let fxVal = selectedProforma.FXProductUnitPrice * totalPackQty;
+                                                    $itemRow.find(`#priceFX_${index}`).dxNumberBox('instance').option('value', fxVal);
+
+                                                    // انتخاب ارز (بر اساس FXTypeId)
+                                                    const currencyItem = CurrencyData.find(c => c.baseId === selectedProforma.FXTypeId);
+                                                    if (currencyItem) {
+                                                        $itemRow.find(`#currencySelect_${index}`).dxSelectBox('instance').option('value', currencyItem.baseId);
+                                                    }
+
+                                                    // انتخاب منبع ارز (بر اساس FXTypeSrc)
+                                                    
+                                                    const currencySrcItem = CurrencySrcData.find(cs => cs.baseId == (selectedProforma.FXTypeSrc || 53));
+                                                    
+                                                    if (currencySrcItem) {
+                                                        $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox('instance').option('value', currencySrcItem.baseId);
+                                                    }
+                                                }
+                                                $itemRow.find(`#proformaDataFa_${index}`).text(`(${selectedProforma.shamsi})`);
+                                            }
+                                        }
+
+                                        // محاسبه مجموع هزینه‌ها بعد از تغییر سفارش
+                                        calculateTotalCosts(bomItems);
+                                    }
+                                });
+
+                                // Input قیمت واحد ارزی
+                                $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox({
+                                    rtlEnabled: true,
+                                    stylingMode: "outlined",
+                                    format: "#,##0.###",
+                                    placeholder: 'قیمت واحد',
+                                    readOnly: true,
+                                    onValueChanged: function(e) {
+                                        updatePrices($itemRow, 'priceUnitFX', index);
+                                    }
+                                });
+
+                                // Input قیمت کل ریالی
+                                $itemRow.find(`#priceIRR_${index}`).dxNumberBox({
+                                    rtlEnabled: true,
+                                    stylingMode: "outlined",
+                                    format: "#,##0",
+                                    placeholder: 'قیمت کل ریالی',
+                                    readOnly: true
+                                });
+                                $itemRow.find(`#priceIRRToday_${index}`).dxNumberBox({
+                                    rtlEnabled: true,
+                                    stylingMode: "outlined",
+                                    format: "#,##0",
+                                    placeholder: 'قیمت کل ریالی',
+                                    readOnly: true
+                                });
+                                // Input قیمت کل ارزی
+                                $itemRow.find(`#priceFX_${index}`).dxNumberBox({
+                                    rtlEnabled: true,
+                                    stylingMode: "outlined",
+                                    format: "#,##0.###",
+                                    placeholder: 'قیمت کل ارزی',
+                                    readOnly: true
+                                });
+
+                                // SelectBox ارز
+                                $itemRow.find(`#currencySelect_${index}`).dxSelectBox({
+                                    dataSource: CurrencyData,
+                                    displayExpr: 'name',
+                                    valueExpr: 'baseId',
+                                    placeholder: 'ارز',
+                                    rtlEnabled: true,
+                                    searchEnabled: true,
+                                    stylingMode: "outlined",
+                                    onValueChanged: function(e) {
+                                        updatePrices($itemRow, 'currency', index);
+                                    }
+                                });
+
+                                // SelectBox منبع ارز
+                                $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox({
+                                    dataSource: CurrencySrcData,
+                                    displayExpr: 'name',
+                                    valueExpr: 'baseId',
+                                    placeholder: 'منبع',
+                                    rtlEnabled: true,
+                                    stylingMode: "outlined",
+                                    onValueChanged: function(e) {
+                                        updatePrices($itemRow, 'currencySrc', index, proformaCurrencyRates);
+                                    }
+                                });
+                                setTimeout(function() {
+                                    const initialValue = relatedProformas.length > 0 ? relatedProformas[0].partNo : 'manual';
+                                    $itemRow.find(`#proformaSelect_${index}`).dxSelectBox('instance').option('value', initialValue);
+                                }, 100);
                             });
+                        }
 
-                            // Input قیمت واحد ارزی
-                            $itemRow.find(`#priceUnitFX_${index}`).dxNumberBox({
-                                rtlEnabled: true,
-                                stylingMode: "outlined",
-                                format: "#,##0.###",
-                                placeholder: 'قیمت واحد',
-                                readOnly: true,
-                                onValueChanged: function(e) {
-                                    updatePrices($itemRow, 'priceUnitFX', index);
-                                }
-                            });
+                        html = '';
 
-                            // Input قیمت کل ریالی
-                            $itemRow.find(`#priceIRR_${index}`).dxNumberBox({
-                                rtlEnabled: true,
-                                stylingMode: "outlined",
-                                format: "#,##0",
-                                placeholder: 'قیمت کل ریالی',
-                                readOnly: true
-                            });
+                        
+                            $itemsList.append(html);
 
-                            // Input قیمت کل ارزی
-                            $itemRow.find(`#priceFX_${index}`).dxNumberBox({
-                                rtlEnabled: true,
-                                stylingMode: "outlined",
-                                format: "#,##0.###",
-                                placeholder: 'قیمت کل ارزی',
-                                readOnly: true
-                            });
-
-                            // SelectBox ارز
-                            $itemRow.find(`#currencySelect_${index}`).dxSelectBox({
-                                dataSource: CurrencyData,
-                                displayExpr: 'name',
-                                valueExpr: 'baseId',
-                                placeholder: 'ارز',
-                                rtlEnabled: true,
-                                searchEnabled: true,
-                                stylingMode: "outlined",
-                                onValueChanged: function(e) {
-                                    updatePrices($itemRow, 'currency', index);
-                                }
-                            });
-
-                            // SelectBox منبع ارز
-                            $itemRow.find(`#currencySrcSelect_${index}`).dxSelectBox({
-                                dataSource: CurrencySrcData,
-                                displayExpr: 'name',
-                                valueExpr: 'baseId',
-                                placeholder: 'منبع',
-                                rtlEnabled: true,
-                                searchEnabled: true,
-                                stylingMode: "outlined",
-                                onValueChanged: function(e) {
-                                    updatePrices($itemRow, 'currencySrc', index);
-                                }
-                            });
-                            setTimeout(function() {
-                                const initialValue = relatedProformas.length > 0 ? relatedProformas[0].partNo : 'manual';
-                                $itemRow.find(`#proformaSelect_${index}`).dxSelectBox('instance').option('value', initialValue);
-                            }, 100);
-                        });
-                    }
-
-                    html = '';
-
-                    
-                        $itemsList.append(html);
-
-                        // اضافه کردن به ScrollView
-                        $scrollView.dxScrollView('instance').content().append($itemsList);
-                        container.append($scrollView);
+                            // اضافه کردن به ScrollView
+                            $scrollView.dxScrollView('instance').content().append($itemsList);
+                            container.append($scrollView);
                     }
                 });
 
@@ -1382,4 +1489,61 @@ function showBomDetails(data) {
             DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
         }
     });
+}
+function calculateTotalCosts(bomItems){
+    
+    let totalIRR = 0;
+    let totalIRRToday = 0;
+    let totalFX = 0;
+
+    bomItems.forEach((item, index) => {
+        // قیمت کل ریالی
+        const priceIRRInstance = $(`#priceIRR_${index}`).dxNumberBox('instance');
+        const priceIRRInstanceToday = $(`#priceIRRToday_${index}`).dxNumberBox('instance');
+        if (priceIRRInstance) {
+            const priceIRR = priceIRRInstance.option('value') || 0;
+            totalIRR += priceIRR;
+        }
+        if (priceIRRInstanceToday) {
+            const priceIRRToday = priceIRRInstanceToday.option('value') || 0;
+            totalIRRToday += priceIRRToday;
+        }
+
+        // قیمت کل ارزی
+        const proformaDate = $(`#proformaDate_${index}`).val();
+        const currencySrcSelect = $(`#currencySrcSelect_${index}`).dxSelectBox('option', 'value');
+        const currencySelect = $(`#currencySelect_${index}`).dxSelectBox('option', 'value');
+        let rate = 1;
+        let freeUsd = 1;
+        if(!(currencySelect == 72 && currencySrcSelect == 53)){
+            let prormaDateCurrencies = null;
+            if(proformaDate) prormaDateCurrencies = proformaCurrencyRates[proformaDate];
+            else prormaDateCurrencies = currencyRates;
+            if(prormaDateCurrencies){
+                freeUsd = (prormaDateCurrencies.find(c => c.baseId == 72)?.FreeRate) ||1; //USD
+                const fxConvert = prormaDateCurrencies.find(c => c.baseId == currencySelect);
+                
+                if(fxConvert){
+                    if (currencySrcSelect == 53) rate = fxConvert.FreeRate;
+                    else if (currencySrcSelect == 51) rate = fxConvert.TarjihiRate;
+                    else if (currencySrcSelect == 52) rate = fxConvert.NimaRate;
+                    else if (currencySrcSelect == 147) rate = fxConvert.SanaRate;
+                    else if (currencySrcSelect == 148) rate = fxConvert.MobadeleRate;
+                }
+            }
+        }
+        
+        
+        
+        const priceFXInstance = $(`#priceFX_${index}`).dxNumberBox('instance');
+        if (priceFXInstance) {
+            const priceFX = (priceFXInstance.option('value') || 0) * rate / freeUsd;
+            totalFX += priceFX;
+        }
+    });
+
+    // نمایش مقادیر در المان‌های مربوطه
+    $('#totalProducrCostIrr').text(threeDigit(totalIRR.toFixed(0)));
+    $('#totalProducrCostIrrToday').text(threeDigit(totalIRRToday.toFixed(0)));
+    $('#totalProducrCostUsd').text(totalFX.toFixed(3));
 }

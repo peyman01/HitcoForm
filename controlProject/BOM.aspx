@@ -79,9 +79,9 @@
         let currencyRates = [];
         const todayFa = new Intl.DateTimeFormat('fa-IR', {month: 'long',day: 'numeric'}).format(new Date());
         const packagingCategories = [
-            {pkgEn: "PrimaryPackQty", pkgFa: 'بسته بندی اولیه'},
-            {pkgEn: "SecondaryPackQty", pkgFa: 'بسته بندی ثانویه'},
-            {pkgEn: "MasterPackQty", pkgFa: 'بسته بندی مادر'}
+            {pkgEn: "PrimaryPackQty", pkgFa: 'تعداد در محصول اصلی'},
+            {pkgEn: "SecondaryPackQty", pkgFa: 'تعداد بسته‌بندی ثانویه در بسته‌بندی مادر'},
+            {pkgEn: "MasterPackQty", pkgFa: 'تعداد بسته‌بندی اولیه در بسته‌بندی ثانویه'}
         ];
 
         // تابع عمومی برای چک کردن session expired

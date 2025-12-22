@@ -1063,7 +1063,7 @@ public class cApiBom : IHttpHandler, IRequiresSessionState
     }
     private void GetCurrencyByDate(HttpContext context)
     {
-        string Date = context.Request.QueryString["Date"];
+        string Date = context.Request.QueryString["Date"]; //persian or gregorian date
 
         using (SqlConnection conn = new SqlConnection(connectionString))
         {
