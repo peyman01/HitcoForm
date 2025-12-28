@@ -21,9 +21,9 @@
             <div class="bom-title">Bill of Materials (BOM)</div>
             <div style="display: flex; gap: 8px;">
                 <div>
-                    <button id="settingsBtn" class="add-bom-btn" title="تنظیمات دسته‌بندی‌ها">
+                    <!--<button id="settingsBtn" class="add-bom-btn" title="تنظیمات دسته‌بندی‌ها">
                         <i class="dx-icon-preferences" style="vertical-align: middle;"></i>
-                    </button>
+                    </button>-->
                     <button id="refreshBtnBottom" class="add-bom-btn" style="min-width: 100px;">
                         <i class="dx-icon-refresh" style="vertical-align: middle;"></i> بروزرسانی
                     </button>
@@ -59,6 +59,7 @@
         <!-- Settings Popup -->
         <div id="settingsPopup"></div>
         <input type="hidden" id="selectedBaseDate" />
+        <input type="hidden" id="selectedBomHeaderId" />
     </div>
 
     <script>
@@ -160,7 +161,7 @@
                         row.rowIndex,
                         "calculationText",
                         //`معادل ${row.data.Quantity} × ${mainQty} = ${totalQty} ${unitName} در بسته‌بندی اولیه`
-                        `معادل ${totalQty} ${unitName} در بسته‌بندی اولیه`
+                        `معادل ${totalQty.toFixed(3)} ${unitName} در بسته‌بندی اولیه`
                     );
                 }
                 apiGrid.repaint();

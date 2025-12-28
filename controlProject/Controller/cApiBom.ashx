@@ -107,6 +107,25 @@ public class cApiBom : IHttpHandler, IRequiresSessionState
                 case "getcurrencybydate":
                     GetCurrencyByDate(context);
                     break;
+                case "savebomchange":
+                    SaveBomChange(context);
+                    break;
+                case "getbomchanges":
+                    GetBomChanges(context);
+                    break;
+                case "getbomchangeitems":
+                    GetBomChangeItems(context);
+                    break;
+                case "updatebomchange":
+                    UpdateBomChange(context);
+                    break;
+                case "deletebomchange":
+                    DeleteBomChange(context);
+                    break;
+                case "getsavebomchangecount":
+                    GetSaveBomChangeCount(context);
+                    break;
+
                 default:
                     context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = "Invalid action" }));
                     break;
@@ -141,6 +160,7 @@ public class cApiBom : IHttpHandler, IRequiresSessionState
 
     private void GetBomList(HttpContext context)
     {
+        
         string companyId = context.Request.QueryString["companyId"];
 
         using (SqlConnection conn = new SqlConnection(connectionString))
@@ -836,8 +856,13 @@ public class cApiBom : IHttpHandler, IRequiresSessionState
     {
         using (SqlConnection conn = new SqlConnection(connectionString))
         {
-            using (SqlCommand cmd = new SqlCommand("SELECT companyId, companyName_FA as companyName FROM HitcoBI..companies ORDER BY companyName_FA", conn))
+            using (SqlCommand cmd = new SqlCommand(@"SELECT c.companyId, c.companyName_FA as companyName 
+            FROM HitcoBI..companies c
+            INNER JOIN HitcoBI..infoUserCompany uc ON uc.companyId = c.companyId AND uc.infoUserId = @userInfo
+            WHERE c.companyId!=17
+            ORDER BY c.companyName_FA", conn))
             {
+                cmd.Parameters.AddWithValue("@userInfo", context.Session["infoUid"]);
                 conn.Open();
                 SqlDataAdapter da = new SqlDataAdapter(cmd);
                 DataTable dt = new DataTable();
@@ -1091,6 +1116,350 @@ public class cApiBom : IHttpHandler, IRequiresSessionState
         }
     }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void SaveBomChange(HttpContext context)
+    {
+        try
+        {
+            using (var reader = new System.IO.StreamReader(context.Request.InputStream))
+            {
+                string jsonData = reader.ReadToEnd();
+                dynamic changeData = JsonConvert.DeserializeObject(jsonData);
+
+                int productBomHeaderId = Convert.ToInt32(changeData.ProductBomHeaderId);
+                string changeName = Convert.ToString(changeData.ChangeName);
+                string batchNo = changeData.BatchNo != null ? Convert.ToString(changeData.BatchNo) : null;
+                string changeDescription = changeData.ChangeDescription != null ? Convert.ToString(changeData.ChangeDescription) : null;
+            
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+                    SqlTransaction transaction = conn.BeginTransaction();
+
+                    try
+                    {
+                        // Insert header
+                        string insertHeaderSql = @"
+                            INSERT INTO HitcoControl..BomDetailChanges
+                            (ProductBomHeaderId, ChangeName, BatchNo, ChangeDescription, userId, CreatedDate, IsActive)
+                            VALUES (@ProductBomHeaderId, @ChangeName, @BatchNo, @ChangeDescription, @userId, GETDATE(), 1);
+                            SELECT CAST(SCOPE_IDENTITY() as int);";
+
+                        int bomDetailChangeId;
+                        using (SqlCommand cmd = new SqlCommand(insertHeaderSql, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@ProductBomHeaderId", productBomHeaderId);
+                            cmd.Parameters.AddWithValue("@ChangeName", changeName);
+                            cmd.Parameters.AddWithValue("@BatchNo", (object)batchNo ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ChangeDescription", (object)changeDescription ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@userId", context.Session["userId"]);
+
+                            bomDetailChangeId = (int)cmd.ExecuteScalar();
+                        }
+
+                        // Insert items
+                        if (changeData.Items != null)
+                        {
+                            string insertItemSql = @"
+                                INSERT INTO HitcoControl..BomDetailChangeItems
+                                (BomDetailChangeId, ProductBomDetailId, SelectedProformaType, partPrdId,
+                                 PriceUnitFX, CurrencyId, CurrencySrcId)
+                                VALUES (@BomDetailChangeId, @ProductBomDetailId, @SelectedProformaType, @partPrdId,
+                                        @PriceUnitFX, @CurrencyId, @CurrencySrcId)";
+
+                            foreach (var item in changeData.Items)
+                            {
+                                using (SqlCommand cmd = new SqlCommand(insertItemSql, conn, transaction))
+                                {
+                                    cmd.Parameters.AddWithValue("@BomDetailChangeId", bomDetailChangeId);
+                                    cmd.Parameters.AddWithValue("@ProductBomDetailId", Convert.ToInt32(item.ProductBomDetailId));
+                                    cmd.Parameters.AddWithValue("@SelectedProformaType", Convert.ToString(item.SelectedProformaType));
+                                    cmd.Parameters.AddWithValue("@partPrdId", item.partPrdId != null ? (object)Convert.ToInt32(item.partPrdId) : DBNull.Value);
+                                    cmd.Parameters.AddWithValue("@PriceUnitFX", item.PriceUnitFX != null ? (object)Convert.ToDecimal(item.PriceUnitFX) : DBNull.Value);
+                                    cmd.Parameters.AddWithValue("@CurrencyId", item.CurrencyId != null ? (object)Convert.ToInt32(item.CurrencyId) : DBNull.Value);
+                                    cmd.Parameters.AddWithValue("@CurrencySrcId", item.CurrencySrcId != null ? (object)Convert.ToInt32(item.CurrencySrcId) : DBNull.Value);
+
+                                    cmd.ExecuteNonQuery();
+                                }
+                            }
+                        }
+
+                        transaction.Commit();
+
+                        context.Response.Write(JsonConvert.SerializeObject(new
+                        {
+                            success = true,
+                            BomDetailChangeId = bomDetailChangeId,
+                            message = "تغییرات با موفقیت ذخیره شد"
+                        }));
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw ex;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = ex.Message }));
+        }
+    }
+
+    private void GetBomChanges(HttpContext context)
+    {
+        try
+        {
+            int productBomHeaderId = Convert.ToInt32(context.Request.QueryString["productBomHeaderId"]);
+            
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string sql = @"
+                    SELECT
+                        BomDetailChangeId,
+                        ProductBomHeaderId,
+                        ChangeName,
+                        BatchNo,
+                        ChangeDescription,
+                        HitcoControl.[dbo].[ConvertToShamsi_M](CreatedDate,'long') CreatedDate,
+                        ModifiedDate,
+                        IsActive
+                    FROM HitcoControl..BomDetailChanges
+                    WHERE ProductBomHeaderId = @ProductBomHeaderId
+                        AND IsActive = 1
+                        AND userId = @userId
+                        ORDER BY CreatedDate DESC";
+
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ProductBomHeaderId", productBomHeaderId);
+                    cmd.Parameters.AddWithValue("@userId", context.Session["userId"]);
+                    conn.Open();
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    DataTable dt = new DataTable();
+                    da.Fill(dt);
+
+                    context.Response.Write(JsonConvert.SerializeObject(new { success = true, data = dt }));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = ex.Message }));
+        }
+    }
+
+    private void GetBomChangeItems(HttpContext context)
+    {
+        try
+        {
+            int bomDetailChangeId = Convert.ToInt32(context.Request.QueryString["bomDetailChangeId"]);
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string sql = @"
+                    SELECT
+                        BomDetailChangeItemId,
+                        BomDetailChangeId,
+                        ProductBomDetailId,
+                        SelectedProformaType,
+                        partPrdId,
+                        PriceUnitFX,
+                        CurrencyId,
+                        CurrencySrcId
+                    FROM HitcoControl..BomDetailChangeItems
+                    WHERE BomDetailChangeId = @BomDetailChangeId
+                    ORDER BY BomDetailChangeItemId";
+
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@BomDetailChangeId", bomDetailChangeId);
+
+                    conn.Open();
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    DataTable dt = new DataTable();
+                    da.Fill(dt);
+
+                    context.Response.Write(JsonConvert.SerializeObject(new { success = true, data = dt }));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = ex.Message }));
+        }
+    }
+
+    private void UpdateBomChange(HttpContext context)
+    {
+        try
+        {
+            using (var reader = new System.IO.StreamReader(context.Request.InputStream))
+            {
+                string jsonData = reader.ReadToEnd();
+                dynamic updateData = JsonConvert.DeserializeObject(jsonData);
+
+                int bomDetailChangeId = Convert.ToInt32(updateData.BomDetailChangeId);
+                string changeName = updateData.ChangeName != null ? Convert.ToString(updateData.ChangeName) : null;
+                string batchNo = updateData.BatchNo != null ? Convert.ToString(updateData.BatchNo) : null;
+                string changeDescription = updateData.ChangeDescription != null ? Convert.ToString(updateData.ChangeDescription) : null;
+
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string sql = @"
+                        UPDATE HitcoControl..BomDetailChanges
+                        SET
+                            ChangeName = ISNULL(@ChangeName, ChangeName),
+                            BatchNo = @BatchNo,
+                            ChangeDescription = @ChangeDescription,
+                            ModifiedDate = GETDATE()
+                        WHERE BomDetailChangeId = @BomDetailChangeId";
+
+                    using (SqlCommand cmd = new SqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@BomDetailChangeId", bomDetailChangeId);
+                        cmd.Parameters.AddWithValue("@ChangeName", (object)changeName ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@BatchNo", (object)batchNo ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@ChangeDescription", (object)changeDescription ?? DBNull.Value);
+
+                        conn.Open();
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            context.Response.Write(JsonConvert.SerializeObject(new
+                            {
+                                success = true,
+                                message = "تغییرات با موفقیت ذخیره شد"
+                            }));
+                        }
+                        else
+                        {
+                            context.Response.Write(JsonConvert.SerializeObject(new
+                            {
+                                success = false,
+                                error = "رکورد یافت نشد"
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = ex.Message }));
+        }
+    }
+
+    private void DeleteBomChange(HttpContext context)
+    {
+        try
+        {
+            int bomDetailChangeId = Convert.ToInt32(context.Request.QueryString["bomDetailChangeId"]);
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                SqlTransaction transaction = conn.BeginTransaction();
+
+                try
+                {
+
+                    string deleteItemsSql = @"
+                        DELETE FROM HitcoControl..BomDetailChangeItems
+                        WHERE BomDetailChangeId = @BomDetailChangeId";
+
+                    using (SqlCommand cmd = new SqlCommand(deleteItemsSql, conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@BomDetailChangeId", bomDetailChangeId);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    // حذف header
+                    string deleteHeaderSql = @"
+                        DELETE FROM HitcoControl..BomDetailChanges
+                        WHERE BomDetailChangeId = @BomDetailChangeId";
+
+                    using (SqlCommand cmd = new SqlCommand(deleteHeaderSql, conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@BomDetailChangeId", bomDetailChangeId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            transaction.Commit();
+                            context.Response.Write(JsonConvert.SerializeObject(new
+                            {
+                                success = true,
+                                message = "رکورد با موفقیت حذف شد"
+                            }));
+                        }
+                        else
+                        {
+                            transaction.Rollback();
+                            context.Response.Write(JsonConvert.SerializeObject(new
+                            {
+                                success = false,
+                                error = "رکورد یافت نشد"
+                            }));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    throw ex;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new { success = false, error = ex.Message }));
+        }
+    }
+
+    private void GetSaveBomChangeCount(HttpContext context)
+    {
+        try
+        {
+            int productBomHeaderId = Convert.ToInt32(context.Request.QueryString["ProductBomHeaderId"]);
+            
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                string sql = @"
+                    SELECT COUNT(*)
+                    FROM HitcoControl..BomDetailChanges
+                    WHERE ProductBomHeaderId = @ProductBomHeaderId
+                    AND IsActive = 1
+                    AND userId = @userId";
+
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ProductBomHeaderId", productBomHeaderId);
+                    cmd.Parameters.AddWithValue("@userId", context.Session["userId"]);
+
+                    conn.Open();
+                    int saveCount = Convert.ToInt32(cmd.ExecuteScalar());
+
+                    context.Response.Write(JsonConvert.SerializeObject(new
+                    {
+                        success = true,
+                        saveCount = saveCount
+                    }));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            context.Response.Write(JsonConvert.SerializeObject(new
+            {
+                success = false,
+                error = ex.Message
+            }));
+        }
+    }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private bool IsSessionValid(HttpContext context)

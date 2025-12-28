@@ -346,8 +346,13 @@ function createBomForm(container) {
 }
 let bomDetailsPopup;
 let proformaCurrencyRates = {};
+let currentLoadedChange = null; // برای ذخیره اطلاعات رکورد بارگذاری شده
+
 function showBomDetails(data) {
     loader("show");
+
+    // ذخیره ProductBomHeaderId برای استفاده بعدی
+    $('#selectedBomHeaderId').val(data.ProductBomHeaderId);
 
     $.ajax({
         url: `Controller/cApiBom.ashx?action=getbomdetail&productBomHeaderId=${data.ProductBomHeaderId}`,
@@ -355,21 +360,59 @@ function showBomDetails(data) {
         dataType: 'json',
         success: function(response) {
             loader("hide");
+            getSaveBomChangeCount(data.ProductBomHeaderId);
             if (response.success) {
+                // Reset current loaded change
+                currentLoadedChange = null;
                 if (!bomDetailsPopup) {
                     bomDetailsPopup = $('<div id="bomDetailsPopup">').appendTo('body').dxPopup({
                         title: "محاسبه هزینه",
                         width: "70%",
                         height: 'auto',
-                        maxHeight: '80vh',
+                        maxHeight: '90vh',
                         showCloseButton: true,
                         rtlEnabled: true,
-                        resizeEnabled: true
+                        resizeEnabled: true,
                     }).dxPopup("instance");
                 }
                 const PrimaryPackQty = response.data.find(p => p.RecordType == 'PrimaryPackQty')?.Quantity || 1;
                 const SecondaryPackQty = response.data.find(p => p.RecordType == 'SecondaryPackQty')?.Quantity || 1;
                 const MasterPackQty = response.data.find(p => p.RecordType == 'MasterPackQty')?.Quantity || 1;
+
+                // اضافه کردن toolbar items به popup
+                bomDetailsPopup.option('toolbarItems', [
+                    {
+                        widget: 'dxButton',
+                        toolbar: 'bottom',
+                        location: 'after',
+                        options: {
+                            text: 'بارگذاری',
+                            icon: 'download',
+                            disabled: true,
+                            type: 'normal',
+                            visible: true,
+                            elementAttr: { id: 'loadBomChangeBtnToolbar' },
+                            onClick: function() {
+                                showLoadBomChangeDialog();
+                            }
+                        }
+                    },
+                    {
+                        widget: 'dxButton',
+                        toolbar: 'bottom',
+                        location: 'after',
+                        options: {
+                            text: 'ذخیره',
+                            icon: 'save',
+                            type: 'default',
+                            visible: true,
+                            elementAttr: { id: 'saveBomChangeBtnToolbar' },
+                            onClick: function() {
+                                showSaveBomChangeDialog();
+                            }
+                        }
+                    }
+                ]);
 
                 bomDetailsPopup.option('contentTemplate', function(contentElement) {
                     // ساخت TabPanel
@@ -379,6 +422,21 @@ function showBomDetails(data) {
                         swipeEnabled: false,
                         animationEnabled: true,
                         onSelectionChanged: function(e) {
+                            // تغییر عرض پاپاپ بر اساس تب انتخاب شده
+                            if (e.addedItems && e.addedItems[0]) {
+                                const selectedTab = e.addedItems[0].title;
+                                if (selectedTab === 'جزئیات') {
+                                    bomDetailsPopup.option('width', '70%');
+                                    // نمایش دکمه‌ها
+                                    $('#loadBomChangeBtnToolbar').dxButton('instance').option('visible', true);
+                                    $('#saveBomChangeBtnToolbar').dxButton('instance').option('visible', true);
+                                } else if (selectedTab === 'هزینه') {
+                                    bomDetailsPopup.option('width', '90%');
+                                    // مخفی کردن دکمه‌ها
+                                    $('#loadBomChangeBtnToolbar').dxButton('instance').option('visible', false);
+                                    $('#saveBomChangeBtnToolbar').dxButton('instance').option('visible', false);
+                                }
+                            }
                             // وقتی به تب هزینه می‌رویم، دوباره بسازیم
                             if (e.addedItems && e.addedItems[0] && e.addedItems[0].title === 'هزینه') {
                                 setTimeout(() => {
@@ -427,6 +485,7 @@ function showBomDetails(data) {
                                                 <div id="analysisDateMonth" style="max-width: 90px;"></div>
                                                 <span style="font-weight: bold; color: #64748b;">/</span>
                                                 <div id="analysisDateDay" style="max-width: 90px;"></div>
+                                                <button id="resetToTodayBtn" style="margin-right: 8px; padding: 6px 12px; border: 1px solid #3b82f6; border-radius: 6px; background: white; color: #3b82f6; cursor: pointer; font-size: 12px; font-weight: 600;">امروز</button>
                                             </div>
                                         </div>
                                         <div>
@@ -446,10 +505,15 @@ function showBomDetails(data) {
                                     </div>
                                 </div>
 
-                                <div style="display: grid; grid-template-columns: 70% 30%; gap: 16px; margin-bottom: 16px;">
+                                <div style="display: grid; grid-template-columns: 45% 25% 30%; gap: 16px; margin-bottom: 16px;">
                                     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
                                         <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">مواد اولیه</div>
                                         <div id="analysisBomItems"></div>
+                                    </div>
+
+                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                                        <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">هزینه‌ها</div>
+                                        <div id="analysisCosts"></div>
                                     </div>
 
                                     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
@@ -457,8 +521,6 @@ function showBomDetails(data) {
                                         <div id="categoryShares"></div>
                                     </div>
                                 </div>
-
-                                <div id="analysisCosts"></div>
                             </div>
                         `;
 
@@ -470,8 +532,20 @@ function showBomDetails(data) {
                         let analysisCurrencyRates = currencyRates;
                         const baseUSDRate = currencyRates.find(cr => cr.baseId === 72)?.FreeRate || 0;
                         let currentUSDRate = baseUSDRate;
+                        let sliderChanged = false;
 
                         const todayParts = YKN(new Intl.DateTimeFormat('fa-IR').format(new Date())).split('/');
+                        const todayYear = parseInt(todayParts[0]);
+                        const todayMonth = parseInt(todayParts[1]);
+                        const todayDay = parseInt(todayParts[2]);
+
+                        // تابع برای چک کردن آیا تاریخ فعلی برابر امروز است
+                        const isToday = function() {
+                            const year = $('#analysisDateYear').dxNumberBox('instance').option('value');
+                            const month = $('#analysisDateMonth').dxNumberBox('instance').option('value');
+                            const day = $('#analysisDateDay').dxNumberBox('instance').option('value');
+                            return year === todayYear && month === todayMonth && day === todayDay;
+                        };
 
                         // تابع برای فراخوانی API وقتی تاریخ تغییر می‌کند
                         const fetchCurrencyByDate = function() {
@@ -500,13 +574,26 @@ function showBomDetails(data) {
                                         if (response.success && response.data) {
                                             analysisCurrencyRates = response.data;
                                             const newUSDRate = response.data.find(cr => cr.baseId == 72)?.FreeRate || baseUSDRate;
-                                            currentUSDRate = newUSDRate;
+
                                             // آپدیت slider
-                                            $('#usdRateSlider').dxSlider('instance').option({
-                                                value: newUSDRate,
+                                            const slider = $('#usdRateSlider').dxSlider('instance');
+                                            slider.option({
                                                 min: newUSDRate * 0.5,
-                                                max: newUSDRate * 1.5
+                                                max: newUSDRate * 1.5,
+                                                value: newUSDRate
                                             });
+
+                                            // آپدیت currentUSDRate بعد از slider
+                                            currentUSDRate = newUSDRate;
+                                            sliderChanged = false;
+
+                                            // فعال یا غیرفعال کردن slider بر اساس تاریخ
+                                            if (isToday()) {
+                                                slider.option('disabled', false);
+                                            } else {
+                                                slider.option('disabled', true);
+                                            }
+
                                             recalculateAnalysis();
                                         }
                                         loader('hide');
@@ -574,6 +661,7 @@ function showBomDetails(data) {
                             value: baseUSDRate,
                             step: 100,
                             rtlEnabled: true,
+                            disabled: false,
                             tooltip: {
                                 enabled: true,
                                 showMode: 'always',
@@ -589,8 +677,24 @@ function showBomDetails(data) {
                                 }
                             },
                             onValueChanged: function(e) {
+                                const oldValue = currentUSDRate;
                                 currentUSDRate = e.value;
-                                recalculateAnalysis();
+
+                                // اگر در تاریخ امروز هستیم و slider تغییر کرد
+                                if (isToday()) {
+                                    const baseRate = analysisCurrencyRates.find(cr => cr.baseId === 72)?.FreeRate || baseUSDRate;
+                                    if (Math.abs(e.value - baseRate) > 100) { // اگر بیشتر از 100 ریال تفاوت داشت
+                                        sliderChanged = true;
+                                        // فقط بخش هزینه‌ها رو آپدیت کن
+                                        recalculateAnalysis(true);
+                                    } else {
+                                        sliderChanged = false;
+                                        recalculateAnalysis(true);
+                                    }
+                                } else {
+                                    // اگر تاریخ تغییر کرده، همه چیز رو دوباره محاسبه کن
+                                    recalculateAnalysis();
+                                }
                             }
                         });
 
@@ -598,14 +702,26 @@ function showBomDetails(data) {
                         $('#resetUsdRate').on('click', function() {
                             const slider = $('#usdRateSlider').dxSlider('instance');
                             const currentBaseRate = analysisCurrencyRates.find(cr => cr.baseId === 72)?.FreeRate || baseUSDRate;
+                            sliderChanged = false;
                             slider.option('value', currentBaseRate);
+                        });
+
+                        // دکمه امروز برای برگرداندن تاریخ به امروز
+                        $('#resetToTodayBtn').on('click', function() {
+                            $('#analysisDateYear').dxNumberBox('instance').option('value', todayYear);
+                            $('#analysisDateMonth').dxNumberBox('instance').option('value', todayMonth);
+                            $('#analysisDateDay').dxNumberBox('instance').option('value', todayDay);
                         });
 
                         // آرایه برای نگهداری تغییرات قیمت هر آیتم
                         const itemPriceChanges = {};
 
+                        // ذخیره مقادیر اصلی برای استفاده در slider
+                        let baseTotalUSDFree = 0;
+                        let baseTotalIRR = 0;
+
                         // تابع برای محاسبه مجدد
-                        function recalculateAnalysis() {
+                        function recalculateAnalysis(onlyUpdateCosts = false) {
                             let totalIRR = 0;
                             let totalUSDFree = 0;
                             const categoryTotals = {};
@@ -617,8 +733,22 @@ function showBomDetails(data) {
                                 item.RecordType === 'MasterLevel'
                             );
 
+                            // اگر فقط می‌خواهیم هزینه‌ها رو آپدیت کنیم (برای تغییرات slider در تاریخ امروز)
+                            if (onlyUpdateCosts && isToday() && sliderChanged) {
+                                // فقط برای نمایش: USD ثابت * نرخ جدید slider
+                                const displayTotalIRR = baseTotalUSDFree * currentUSDRate;
+                                updateAnalysisCosts(displayTotalIRR, baseTotalUSDFree);
+                                return;
+                            }
+
                             let itemsHTML = '';
                             bomItems.forEach((item, index) => {
+                                // محاسبه TotalPackQty مثل تب جزئیات
+                                let TotalPackQty = 0;
+                                if(item.RecordType == 'MainLevel') TotalPackQty = (item.Quantity || 0) * PrimaryPackQty;
+                                else if(item.RecordType == 'SecondaryLevel') TotalPackQty = (item.Quantity || 0) / SecondaryPackQty;
+                                else if(item.RecordType == 'MasterLevel') TotalPackQty = (item.Quantity || 0) / (MasterPackQty * SecondaryPackQty);
+
                                 // خواندن مقادیر از تب جزئیات
                                 const priceUnitFXInstance = $(`#priceUnitFX_${index}`).dxNumberBox('instance');
                                 const priceFXInstance = $(`#priceFX_${index}`).dxNumberBox('instance');
@@ -632,13 +762,13 @@ function showBomDetails(data) {
                                 const currencyId = currencyInstance.option('value');
                                 const currencySrcId = currencySrcInstance.option('value');
                                 const quantity = parseFloat($(`#item_Quantity_${index}`).val()) || 0;
-                                
+
                                 // اعمال تغییر قیمت از slider
                                 const priceChange = itemPriceChanges[index] || 1;
                                 const adjustedUnitPrice = baseUnitPrice * priceChange;
 
-                                // محاسبه قیمت کل ارزی
-                                const totalFX = adjustedUnitPrice * quantity;
+                                // محاسبه قیمت کل ارزی مثل updatePrices
+                                const totalFX = adjustedUnitPrice * TotalPackQty;
 
                                 // تبدیل به ریال با نرخ جدید
                                 let totalIRRItem = 0;
@@ -653,10 +783,8 @@ function showBomDetails(data) {
                                     else if (currencySrcId == 147) rate = currencyRate.SanaRate;
                                     else if (currencySrcId == 148) rate = currencyRate.MobadeleRate;
 
-                                    // اگر دلار آزاد انتخاب شده، از نرخ slider استفاده کن
-                                    if (currencyId == 72 && currencySrcId == 53) {
-                                        rate = currentUSDRate;
-                                    }
+                                    // توجه: در اینجا از نرخ اصلی استفاده می‌کنیم، نه از slider
+                                    // slider فقط در بخش نمایش هزینه‌ها تاثیر می‌گذارد
 
                                     totalIRRItem = totalFX * rate;
 
@@ -666,7 +794,9 @@ function showBomDetails(data) {
                                     if (isUSD && isFree) {
                                         totalUSDItem = totalFX;
                                     } else {
-                                        totalUSDItem = totalIRRItem / currentUSDRate;
+                                        // استفاده از نرخ اصلی دلار از analysisCurrencyRates
+                                        const freeUSDRate = analysisCurrencyRates.find(cr => cr.baseId === 72)?.FreeRate || baseUSDRate;
+                                        totalUSDItem = totalIRRItem / freeUSDRate;
                                     }
                                 }
 
@@ -696,10 +826,23 @@ function showBomDetails(data) {
                                 itemsHTML += `
                                     <div style="padding: 12px; margin-bottom: 8px; background: ${item.color || '#f8fafc'}; border-radius: 8px;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                            <div style="font-weight: 600; color: #1e293b;">${item.Name || '-'}</div>
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 600; color: #1e293b;">${item.Name || '-'}</div>
+                                                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                                                    دسته‌بندی: ${item.CategoryFa || '-'}
+                                                    ${item.RecordType == "SecondaryLevel" ? ` (بسته بندی ثانویه)`
+                                                        :
+                                                        item.RecordType == "MasterLevel" ? ` (بسته بندی مادر)`
+                                                        :``
+                                                    }
+                                                    |
+                                                    مقدار: ${quantity} ${unitName}
+                                                    (معادل ${TotalPackQty.toFixed(3)} ${unitName} در محصول اصلی)
+                                                </div>
+                                            </div>
                                             <div style="display: flex; gap: 8px; align-items: center;">
                                                 <div style="font-size: 12px; color: #64748b;">قیمت واحد:</div>
-                                                <div style="font-weight: bold; color: ${colorClass}; direction: ltr;">${Number(adjustedUnitPrice.toFixed(3)).toLocaleString()} ${currencyName}</div>
+                                                <div style="font-weight: bold; color: ${colorClass}; direction: ltr;">${Number(adjustedUnitPrice.toFixed(3)).toLocaleString()} ${currencyName} ${srcName}</div>
                                                 <div style="width: 120px;" id="priceNumberBox_${index}"></div>
                                                 <button id="resetPrice_${index}" style="width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 4px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
@@ -711,8 +854,7 @@ function showBomDetails(data) {
                                                 </button>
                                             </div>
                                         </div>
-                                        <div style="font-size: 12px; color: #64748b;">
-                                            مقدار: ${quantity} ${unitName} |
+                                        <div style="font-size: 12px; color: #64748b; margin-right: 20px;">
                                             قیمت کل: ${Number(totalFX.toFixed(3)).toLocaleString()} ${currencyName} ${srcName},
                                             ${Number(totalIRRItem.toFixed()).toLocaleString()} ریال
                                             ${showUSDConversion ? `, ${Number(totalUSDItem.toFixed(3)).toLocaleString()} دلار آزاد` : ''}
@@ -808,180 +950,75 @@ function showBomDetails(data) {
                                 rtlEnabled: true
                             });
 
+                            // ذخیره مقادیر اصلی (قبل از اعمال تغییرات slider)
+                            baseTotalUSDFree = totalUSDFree;
+                            baseTotalIRR = totalIRR;
+
+                            // اگر slider تغییر کرده و در تاریخ امروز هستیم، فقط برای نمایش هزینه‌ها از نرخ جدید استفاده کن
+                            let displayTotalIRR = totalIRR;
+                            if (isToday() && sliderChanged) {
+                                // فقط برای نمایش: USD ثابت * نرخ جدید slider
+                                displayTotalIRR = baseTotalUSDFree * currentUSDRate;
+                            }
+
                             // نمایش هزینه‌های کل (استفاده از همان HTML تب جزئیات)
-                            updateAnalysisCosts(totalIRR, totalUSDFree);
+                            updateAnalysisCosts(displayTotalIRR, totalUSDFree);
                         }
 
                         function updateAnalysisCosts(totalIRR, totalUSDFree) {
-                            const packagingItems = response.data.filter(item => item.RecordType);
-                            const primaryPkg = packagingItems.find(item => item.RecordType === packagingCategories[0].pkgEn);
-                            const secondaryPkg = packagingItems.find(item => item.RecordType === packagingCategories[1].pkgEn);
-                            const motherPkg = packagingItems.find(item => item.RecordType === packagingCategories[2].pkgEn);
                             const baseDate = $("#selectedBaseDate").val() || "امروز";
+                            let titleText = '';
+
+                            if (isToday()) {
+                                if (sliderChanged) {
+                                    titleText = `هزینه تمام شده خام محصول اصلی (با نرخ دلار ${Number(currentUSDRate).toLocaleString()} ریالی)`;
+                                } else {
+                                     titleText = 'هزینه تمام شده خام محصول اصلی (به نرخ امروز)';
+                                }
+                            } else {
+                                titleText = `هزینه تمام شده خام محصول اصلی (به نرخ ${baseDate})`;
+                            }
+
                             let costsHTML = `
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0; overflow: hidden;">
-                                        <div style="padding: 10px 16px; border-bottom: 2px solid #e2e8f0;">
-                                            <div style="font-size: 14px; font-weight: bold;">هزینه تمام شده خام (به نرخ ${baseDate})</div>
+                                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0; overflow: hidden; margin-bottom: 12px;">
+                                    <div style="padding: 8px 12px; border-bottom: 2px solid #e2e8f0; background: #f9fafb;">
+                                        <div style="font-size: 12px; font-weight: bold;">${titleText}</div>
+                                    </div>
+                                    <div style="padding: 12px;">
+                                        <div style="margin-bottom: 8px;">
+                                            <div style="font-size: 10px; color: #64748b;">ریالی</div>
+                                            <div style="font-size: 16px; font-weight: bold; color: #10b981; direction: ltr;">${Number(totalIRR.toFixed()).toLocaleString()}</div>
                                         </div>
-                                        <div style="padding: 16px;">
-                                            <div style="margin-bottom: 12px;">
-                                                <div style="font-size: 11px; color: #64748b;">ریالی</div>
-                                                <div style="font-size: 18px; font-weight: bold; color: #10b981; direction: ltr;">${Number(totalIRR.toFixed()).toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div style="font-size: 11px; color: #64748b;">دلاری</div>
-                                                <div style="font-size: 18px; font-weight: bold; color: #10b981; direction: ltr;">${Number(totalUSDFree.toFixed(3)).toLocaleString()}</div>
-                                            </div>
+                                        <div>
+                                            <div style="font-size: 10px; color: #64748b;">دلاری</div>
+                                            <div style="font-size: 16px; font-weight: bold; color: #10b981; direction: ltr;">${Number(totalUSDFree.toFixed(3)).toLocaleString()}</div>
                                         </div>
                                     </div>
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0; overflow: hidden;">
-                                        <div style="padding: 10px 16px; border-bottom: 2px solid #e2e8f0;">
-                                            <div style="font-size: 14px; font-weight: bold;">با احتساب سربار (به نرخ ${baseDate})</div>
+                                </div>
+                                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0; overflow: hidden;">
+                                    <div style="padding: 8px 12px; border-bottom: 2px solid #e2e8f0; background: #f9fafb;">
+                                        <div style="font-size: 12px; font-weight: bold;">با احتساب سربار (${isToday() ? (sliderChanged ? `با نرخ دلار ${Number(currentUSDRate).toLocaleString()} ریالی` : 'به نرخ امروز') : `به نرخ ${baseDate}`})</div>
+                                    </div>
+                                    <div style="padding: 12px;">
+                                        <div style="margin-bottom: 8px;">
+                                            <div style="font-size: 10px; color: #64748b;">ریالی</div>
+                                            <div style="font-size: 16px; font-weight: bold; color: #3b82f6; direction: ltr;">${Number(totalIRR.toFixed()).toLocaleString()}</div>
                                         </div>
-                                        <div style="padding: 16px;">
-                                            <div style="margin-bottom: 12px;">
-                                                <div style="font-size: 11px; color: #64748b;">ریالی</div>
-                                                <div style="font-size: 18px; font-weight: bold; color: #3b82f6; direction: ltr;">${Number(totalIRR.toFixed()).toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div style="font-size: 11px; color: #64748b;">دلاری</div>
-                                                <div style="font-size: 18px; font-weight: bold; color: #3b82f6; direction: ltr;">${Number(totalUSDFree.toFixed(3)).toLocaleString()}</div>
-                                            </div>
+                                        <div>
+                                            <div style="font-size: 10px; color: #64748b;">دلاری</div>
+                                            <div style="font-size: 16px; font-weight: bold; color: #3b82f6; direction: ltr;">${Number(totalUSDFree.toFixed(3)).toLocaleString()}</div>
                                         </div>
                                     </div>
                                 </div>
                             `;
 
-                            // بسته‌بندی‌ها
-                            if (packagingItems.length > 0) {
-                                costsHTML += `
-                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
-                                        <div style="font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;">هزینه هر بسته</div>
-                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-                                `;
-
-                                if (primaryPkg) {
-                                    const qty = parseFloat(primaryPkg.Quantity) || 0;
-                                    const primaryRawIRR = totalIRR * qty;
-                                    const primaryRawUSD = totalUSDFree * qty;
-
-                                    costsHTML += `
-                                        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 16px;">
-                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                                <div style="width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #f59e0b;">${qty}</div>
-                                                <div>
-                                                    <div style="font-size: 11px; color: #92400e;">بسته اولیه</div>
-                                                    <div style="font-size: 9px; color: #92400e; opacity: 0.7;">شامل ${qty} واحد در بسته</div>
-                                                </div>
-                                            </div>
-                                            <div style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                                                <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">خام</div>
-                                                <div style="font-weight: bold; color: #10b981; font-size: 14px; direction: ltr;">${Number(primaryRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                <div style="font-weight: bold; color: #10b981; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(primaryRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                            </div>
-                                            <div style="background: white; border-radius: 8px; padding: 12px;">
-                                                <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">با سربار</div>
-                                                <div style="font-weight: bold; color: #3b82f6; font-size: 14px; direction: ltr;">${Number(primaryRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                <div style="font-weight: bold; color: #3b82f6; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(primaryRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                            </div>
-                                        </div>
-                                    `;
-
-                                    if (secondaryPkg) {
-                                        const secondaryQty = parseFloat(secondaryPkg.Quantity) || 0;
-                                        const secondaryRawIRR = primaryRawIRR * secondaryQty;
-                                        const secondaryRawUSD = primaryRawUSD * secondaryQty;
-
-                                        costsHTML += `
-                                            <div style="background: linear-gradient(135deg, #dbeafe 0%, #3b82f6 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 16px;">
-                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                                    <div style="width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #2563eb;">${secondaryQty}</div>
-                                                    <div>
-                                                        <div style="font-size: 11px; color: #1e3a8a;">بسته ثانویه</div>
-                                                        <div style="font-size: 9px; color: #1e3a8a; opacity: 0.7;">شامل ${secondaryQty} بسته اولیه</div>
-                                                    </div>
-                                                </div>
-                                                <div style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                                                    <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">خام</div>
-                                                    <div style="font-weight: bold; color: #10b981; font-size: 14px; direction: ltr;">${Number(secondaryRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                    <div style="font-weight: bold; color: #10b981; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(secondaryRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                </div>
-                                                <div style="background: white; border-radius: 8px; padding: 12px;">
-                                                    <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">با سربار</div>
-                                                    <div style="font-weight: bold; color: #3b82f6; font-size: 14px; direction: ltr;">${Number(secondaryRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                    <div style="font-weight: bold; color: #3b82f6; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(secondaryRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                </div>
-                                            </div>
-                                        `;
-
-                                        if (motherPkg) {
-                                            const motherQty = parseFloat(motherPkg.Quantity) || 0;
-                                            const motherRawIRR = secondaryRawIRR * motherQty;
-                                            const motherRawUSD = secondaryRawUSD * motherQty;
-
-                                            costsHTML += `
-                                                <div style="background: linear-gradient(135deg, #f3e8ff 0%, #a855f7 100%); border: 2px solid #9333ea; border-radius: 12px; padding: 16px;">
-                                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                                        <div style="width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #9333ea;">${motherQty}</div>
-                                                        <div>
-                                                            <div style="font-size: 11px; color: #581c87;">بسته مادر</div>
-                                                            <div style="font-size: 9px; color: #581c87; opacity: 0.7;">شامل ${motherQty} بسته ثانویه</div>
-                                                        </div>
-                                                    </div>
-                                                    <div style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                                                        <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">خام</div>
-                                                        <div style="font-weight: bold; color: #10b981; font-size: 14px; direction: ltr;">${Number(motherRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                        <div style="font-weight: bold; color: #10b981; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(motherRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                    </div>
-                                                    <div style="background: white; border-radius: 8px; padding: 12px;">
-                                                        <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">با سربار</div>
-                                                        <div style="font-weight: bold; color: #3b82f6; font-size: 14px; direction: ltr;">${Number(motherRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                        <div style="font-weight: bold; color: #3b82f6; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(motherRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                    </div>
-                                                </div>
-                                            `;
-                                        }
-                                    } else if (motherPkg) {
-                                        const motherQty = parseFloat(motherPkg.Quantity) || 0;
-                                        const motherRawIRR = primaryRawIRR * motherQty;
-                                        const motherRawUSD = primaryRawUSD * motherQty;
-
-                                        costsHTML += `
-                                            <div style="background: linear-gradient(135deg, #f3e8ff 0%, #a855f7 100%); border: 2px solid #9333ea; border-radius: 12px; padding: 16px;">
-                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                                                    <div style="width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #9333ea;">${motherQty}</div>
-                                                    <div>
-                                                        <div style="font-size: 11px; color: #581c87;">بسته مادر</div>
-                                                        <div style="font-size: 9px; color: #581c87; opacity: 0.7;">${motherQty} بسته اولیه</div>
-                                                    </div>
-                                                </div>
-                                                <div style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                                                    <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">خام</div>
-                                                    <div style="font-weight: bold; color: #10b981; font-size: 14px; direction: ltr;">${Number(motherRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                    <div style="font-weight: bold; color: #10b981; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(motherRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                </div>
-                                                <div style="background: white; border-radius: 8px; padding: 12px;">
-                                                    <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">با سربار</div>
-                                                    <div style="font-weight: bold; color: #3b82f6; font-size: 14px; direction: ltr;">${Number(motherRawIRR.toFixed()).toLocaleString()} <span style="font-size: 10px;">ریال</span></div>
-                                                    <div style="font-weight: bold; color: #3b82f6; font-size: 13px; direction: ltr; margin-top: 2px;">${Number(motherRawUSD.toFixed(3)).toLocaleString()} <span style="font-size: 9px;">USD</span></div>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }
-                                }
-
-                                costsHTML += `
-                                        </div>
-                                    </div>
-                                `;
-                            }
-
                             $('#analysisCosts').html(costsHTML);
                         }
-
+                        
                         // محاسبه اولیه
                         setTimeout(() => recalculateAnalysis(), 500);
+                        setTimeout(() => $('#bomDetailsPopup').dxPopup("option","position",{my: 'center', at: 'center'}), 800);
+                        
                     }
                     // تابع برای ساخت تب جزئیات
                     function createDetailsTab(container) {  
@@ -1031,7 +1068,12 @@ function showBomDetails(data) {
                                     <div style="width:1px;height:32px;background:rgba(0,0,0,0.3);"></div>
                                     <div style="text-align:left;">
                                         <div id="totalProducrCostUsd" style="font-size:16px;font-weight:700; line-height:1.2;"></div>
-                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">دلار آزاد</div>
+                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">دلار آزاد (به نرخ تاریخ سفارش‌ها)</div>
+                                    </div>
+                                    <div style="width:1px;height:32px;background:rgba(0,0,0,0.3);"></div>
+                                    <div style="text-align:left;">
+                                        <div id="totalProducrCostUsdToday" style="font-size:16px;font-weight:700; line-height:1.2;"></div>
+                                        <div style="font-size:10px;color:rgba(0,0,0,0.8);margin-top:2px;">دلار آزاد (به نرخ امروز)</div>
                                     </div>
                                 </div>
                             </div>
@@ -1085,6 +1127,7 @@ function showBomDetails(data) {
                         html += `
                                     </div>
                                 </div>
+                            </div>
                         `;
 
                         const $itemsList = $(html);
@@ -1212,7 +1255,8 @@ function showBomDetails(data) {
                                             </div>
                                             <input type="hidden" value="${item.Quantity}" id="item_Quantity_${index}" />
                                             <input type="hidden" value="${TotalPackQty}" id="item_totalPackQty_${index}" />
-                                            
+                                            <input type="hidden" value="${item.ProductBomDetailId}" id="productBomDetailId_${index}" />
+
                                         </div>
                                         <div style="display: flex; gap: 8px; align-items: flex-end; margin-right: 20px;">
                                             <div style="flex: 1; min-width: 250px;">
@@ -1251,7 +1295,7 @@ function showBomDetails(data) {
                                 `);
                                 $bomItemsContainer.append($itemRow);
                                 $itemRow.find(`#proformaSelect_${index}`).dxSelectBox({
-                                    dataSource: [{partNo: 'manual',manual: true}].concat(relatedProformas),
+                                    dataSource: [{partPrdId: 'manual',manual: true}].concat(relatedProformas),
                                     /*displayExpr: function(item) {
                                         if (!item) return '';
                                         return item.manual ? `قیمت دلخواه` :
@@ -1325,7 +1369,7 @@ function showBomDetails(data) {
                                         );
                                     },
 
-                                    valueExpr: 'partNo',
+                                    valueExpr: 'partPrdId',
                                     placeholder: 'انتخاب سفارش',
                                     rtlEnabled: true,
                                     searchEnabled: true,
@@ -1355,7 +1399,7 @@ function showBomDetails(data) {
                                                 $itemRow.find(`#proformaDataFa_${index}`).text('(نرخ امروز)');
                                             }
                                             else{
-                                                const selectedProforma = relatedProformas.find(p => p.partNo === e.value);
+                                                const selectedProforma = relatedProformas.find(p => p.partPrdId === e.value);
                                                 if (selectedProforma) {
                                                     $itemRow.find(`#proformaDate_${index}`).val(selectedProforma.proformaDate);
 
@@ -1462,24 +1506,29 @@ function showBomDetails(data) {
                                     }
                                 });
                                 setTimeout(function() {
-                                    const initialValue = relatedProformas.length > 0 ? relatedProformas[0].partNo : 'manual';
+                                    const initialValue = relatedProformas.length > 0 ? relatedProformas[0].partPrdId : 'manual';
                                     $itemRow.find(`#proformaSelect_${index}`).dxSelectBox('instance').option('value', initialValue);
                                 }, 100);
                             });
                         }
 
                         html = '';
+                        $itemsList.append(html);
 
-                        
-                            $itemsList.append(html);
-
-                            // اضافه کردن به ScrollView
-                            $scrollView.dxScrollView('instance').content().append($itemsList);
-                            container.append($scrollView);
+                        // اضافه کردن به ScrollView
+                        $scrollView.dxScrollView('instance').content().append($itemsList);
+                        container.append($scrollView);
                     }
                 });
 
                 bomDetailsPopup.show();
+                $('#saveBomChangeBtn').on('click', function() {
+                    showSaveBomChangeDialog();
+                });
+
+                $('#loadBomChangeBtn').on('click', function() {
+                    showLoadBomChangeDialog();
+                });
             } else {
                 DevExpress.ui.notify('خطا در دریافت جزئیات: ' + response.error, 'error', 3000);
             }
@@ -1541,9 +1590,523 @@ function calculateTotalCosts(bomItems){
             totalFX += priceFX;
         }
     });
-
+    const freeUsdToday = currencyRates.find(c => c.baseId == 72)?.FreeRate;
     // نمایش مقادیر در المان‌های مربوطه
     $('#totalProducrCostIrr').text(threeDigit(totalIRR.toFixed(0)));
     $('#totalProducrCostIrrToday').text(threeDigit(totalIRRToday.toFixed(0)));
     $('#totalProducrCostUsd').text(totalFX.toFixed(3));
+    $('#totalProducrCostUsdToday').text((totalIRRToday / freeUsdToday).toFixed(3));
+}
+
+// تابع برای نمایش دیالوگ ذخیره تغییرات
+function showSaveBomChangeDialog() {
+    // حذف دیالوگ قبلی اگر وجود داشته باشد
+    if ($('#saveBomChangeDialog').length > 0) {
+        $('#saveBomChangeDialog').remove();
+    }
+
+    const dialogContent = $('<div>').attr('id', 'saveBomChangeDialog');
+
+    const formHtml = `
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1e293b;">
+                    نام ذخیره <span style="color: #ef4444;">*</span>
+                </label>
+                <div id="changeNameInput"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1e293b;">
+                    شماره بچ
+                </label>
+                <div id="batchNoInput"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1e293b;">
+                    توضیحات
+                </label>
+                <div id="descriptionInput"></div>
+            </div>
+        </div>
+    `;
+
+    dialogContent.html(formHtml);
+
+    // اضافه کردن به body
+    $('body').append(dialogContent);
+
+    // Initialize inputs first
+    dialogContent.find('#changeNameInput').dxTextBox({
+        placeholder: 'نام برای این ذخیره را وارد کنید',
+        rtlEnabled: true,
+        stylingMode: 'outlined'
+    });
+
+    dialogContent.find('#batchNoInput').dxTextBox({
+        placeholder: 'شماره بچ (اختیاری)',
+        rtlEnabled: true,
+        stylingMode: 'outlined'
+    });
+
+    dialogContent.find('#descriptionInput').dxTextArea({
+        placeholder: 'توضیحات (اختیاری)',
+        rtlEnabled: true,
+        stylingMode: 'outlined',
+        height: 100
+    });
+
+    // Create popup
+    const saveDialog = dialogContent.dxPopup({
+        title: 'ذخیره تغییرات',
+        width: 500,
+        height: 'auto',
+        showCloseButton: true,
+        rtlEnabled: true,
+        toolbarItems: [{
+            widget: 'dxButton',
+            toolbar: 'bottom',
+            location: 'after',
+            options: {
+                text: 'ذخیره',
+                type: 'default',
+                onClick: function() {
+                    saveBomChange();
+                }
+            }
+        }, {
+            widget: 'dxButton',
+            toolbar: 'bottom',
+            location: 'after',
+            options: {
+                text: 'انصراف',
+                onClick: function() {
+                    saveDialog.hide();
+                }
+            }
+        }]
+    }).dxPopup('instance');
+    saveDialog.show();
+}
+
+// تابع برای ذخیره تغییرات در دیتابیس
+function saveBomChange() {
+    const changeName = $('#changeNameInput').dxTextBox('instance').option('value');
+    const batchNo = $('#batchNoInput').dxTextBox('instance').option('value');
+    const description = $('#descriptionInput').dxTextArea('instance').option('value');
+
+    if (!changeName || changeName.trim() === '') {
+        DevExpress.ui.notify('لطفاً نام ذخیره را وارد کنید', 'warning', 3000);
+        return;
+    }
+
+    // Get userId from session
+    const userId = parseInt($('#userId').val()) || null;
+
+    // Get ProductBomHeaderId from current BOM
+    const productBomHeaderId = parseInt($('#selectedBomHeaderId').val());
+
+    if (!productBomHeaderId) {
+        DevExpress.ui.notify('خطا: شناسه BOM یافت نشد', 'error', 3000);
+        return;
+    }
+
+    // جمع‌آوری اطلاعات تمام آیتم‌ها
+    const bomItems = [];
+    $('.dx-scrollview-content').find('[id^="proformaSelect_"]').each(function() {
+        const index = $(this).attr('id').split('_')[1];
+        const proformaSelectInstance = $(`#proformaSelect_${index}`).dxSelectBox('instance');
+        const selectedValue = proformaSelectInstance.option('value');
+
+        if (!selectedValue) return; // Skip if nothing selected
+
+        const productBomDetailId = $(`#productBomDetailId_${index}`).val();
+
+        const itemData = {
+            ProductBomDetailId: parseInt(productBomDetailId),
+            SelectedProformaType: selectedValue === 'manual' ? 'manual' : 'proforma',
+            partPrdId: selectedValue !== 'manual' ? parseInt(selectedValue) : null,
+            PriceUnitFX: null,
+            CurrencyId: null,
+            CurrencySrcId: null
+        };
+
+        // اگر manual انتخاب شده، قیمت‌های دستی رو بگیر
+        if (selectedValue === 'manual') {
+            const priceUnitFXInstance = $(`#priceUnitFX_${index}`).dxNumberBox('instance');
+            const currencyInstance = $(`#currencySelect_${index}`).dxSelectBox('instance');
+            const currencySrcInstance = $(`#currencySrcSelect_${index}`).dxSelectBox('instance');
+
+            itemData.PriceUnitFX = priceUnitFXInstance ? priceUnitFXInstance.option('value') : null;
+            itemData.CurrencyId = currencyInstance ? currencyInstance.option('value') : null;
+            itemData.CurrencySrcId = currencySrcInstance ? currencySrcInstance.option('value') : null;
+        }
+
+        bomItems.push(itemData);
+    });
+
+    const saveData = {
+        ProductBomHeaderId: productBomHeaderId,
+        ChangeName: changeName.trim(),
+        BatchNo: batchNo ? batchNo.trim() : null,
+        ChangeDescription: description ? description.trim() : null,
+        userId: userId,
+        Items: bomItems
+    };
+
+    loader('show');
+
+    $.ajax({
+        url: 'Controller/cApiBom.ashx?action=savebomchange',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(saveData),
+        dataType: 'json',
+        success: function(response) {
+            loader('hide');
+            if (response.success) {
+                DevExpress.ui.notify('تغییرات با موفقیت ذخیره شد', 'success', 3000);
+
+                // بستن دیالوگ ذخیره
+                const saveDialogInstance = $('#saveBomChangeDialog').dxPopup('instance');
+                if (saveDialogInstance) {
+                    saveDialogInstance.hide();
+                }
+
+                currentLoadedChange = {
+                    BomDetailChangeId: response.BomDetailChangeId,
+                    ChangeName: changeName.trim()
+                };
+                // Update popup title
+                bomDetailsPopup.option('title', 'محاسبه هزینه  (' + changeName.trim() + ')');
+                setLoadButtonDisabled(false);
+            } else {
+                DevExpress.ui.notify('خطا در ذخیره: ' + (response.error || 'خطای نامشخص'), 'error', 3000);
+            }
+        },
+        error: function(xhr, status, error) {
+            loader('hide');
+            DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+        }
+    });
+}
+
+// تابع برای نمایش دیالوگ بارگذاری تغییرات
+function showLoadBomChangeDialog() {
+    const userId = parseInt($('#userId').val()) || null;
+    const productBomHeaderId = parseInt($('#selectedBomHeaderId').val());
+
+    if (!productBomHeaderId) {
+        DevExpress.ui.notify('خطا: شناسه BOM یافت نشد', 'error', 3000);
+        return;
+    }
+
+    loader('show');
+
+    // دریافت لیست تغییرات ذخیره شده
+    $.ajax({
+        url: `Controller/cApiBom.ashx?action=getbomchanges&productBomHeaderId=${productBomHeaderId}&userId=${userId || ''}`,
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            loader('hide');
+
+            if (response.success && response.data) {
+                // حذف دیالوگ قبلی اگر وجود داشته باشد
+                if ($('#loadBomChangeDialog').length > 0) {
+                    $('#loadBomChangeDialog').remove();
+                }
+
+                const dialogContent = $('<div>').attr('id', 'loadBomChangeDialog');
+                const gridHtml = '<div id="bomChangesGrid" style="height: 400px;"></div>';
+                dialogContent.html(gridHtml);
+
+                // اضافه کردن به body
+                $('body').append(dialogContent);
+
+                // Create popup first
+                const loadDialog = dialogContent.dxPopup({
+                    title: 'بارگذاری تغییرات ذخیره شده',
+                    width: 700,
+                    height: 600,
+                    showCloseButton: true,
+                    rtlEnabled: true,
+                    onShown: function() {
+                        // Initialize grid after popup is shown
+                        dialogContent.find('#bomChangesGrid').dxDataGrid({
+                            dataSource: response.data,
+                            rtlEnabled: true,
+                            showBorders: true,
+                            showRowLines: true,
+                            hoverStateEnabled: true,
+                            columnAutoWidth: true,
+                            selection: {
+                                mode: 'single'
+                            },
+                            editing: {
+                                mode: 'row',
+                                allowUpdating: true,
+                                allowDeleting: true,
+                                useIcons: true
+                            },
+                            columns: [
+                                {
+                                    dataField: 'ChangeName',
+                                    caption: 'نام',
+                                    width: 200,
+                                    validationRules: [{
+                                        type: 'required',
+                                        message: 'نام الزامی است'
+                                    }]
+                                },
+                                {
+                                    dataField: 'BatchNo',
+                                    caption: 'شماره بچ',
+                                    width: 120
+                                },
+                                {
+                                    dataField: 'ChangeDescription',
+                                    caption: 'توضیحات'
+                                },
+                                {
+                                    dataField: 'CreatedDate',
+                                    caption: 'تاریخ ایجاد',
+                                    dataType: 'date',
+                                    format: 'yyyy/MM/dd HH:mm',
+                                    width: 150,
+                                    allowEditing: false
+                                },
+                                {
+                                    type: 'buttons',
+                                    width: 110,
+                                    buttons: [
+                                        'edit',
+                                        'delete',
+                                        {
+                                            hint: 'بارگذاری',
+                                            icon: 'download',
+                                            onClick: function(e) {
+                                                loadBomChange(e.row.data.BomDetailChangeId, e.row.data.ChangeName);
+                                                loadDialog.hide();
+                                            }
+                                        }
+                                    ]
+                                }
+                            ],
+                            onRowUpdating: function(e) {
+                                updateBomChange(e.oldData.BomDetailChangeId, e.newData);
+                            },
+                            onRowRemoving: function(e) {
+                                deleteBomChange(e.data.BomDetailChangeId, loadDialog);
+                            }
+                        });
+                    },
+                    toolbarItems: [{
+                        widget: 'dxButton',
+                        toolbar: 'bottom',
+                        location: 'after',
+                        options: {
+                            text: 'انصراف',
+                            onClick: function() {
+                                loadDialog.hide();
+                            }
+                        }
+                    }]
+                }).dxPopup('instance');
+
+                loadDialog.show();
+            } else {
+                DevExpress.ui.notify('هیچ تغییری ذخیره نشده است', 'info', 3000);
+            }
+        },
+        error: function(xhr, status, error) {
+            loader('hide');
+            DevExpress.ui.notify('خطا در دریافت اطلاعات: ' + error, 'error', 3000);
+        }
+    });
+}
+
+// تابع برای بارگذاری یک تغییر خاص و پر کردن فرم
+function loadBomChange(bomDetailChangeId, changeName) {
+    loader('show');
+
+    $.ajax({
+        url: `Controller/cApiBom.ashx?action=getbomchangeitems&bomDetailChangeId=${bomDetailChangeId}`,
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            loader('hide');
+
+            if (response.success && response.data) {
+                // پر کردن مقادیر
+                response.data.forEach(function(item) {
+                    // پیدا کردن index این آیتم
+                    const index = findItemIndexByDetailId(item.ProductBomDetailId);
+
+                    if (index !== -1) {
+                        const proformaSelectInstance = $(`#proformaSelect_${index}`).dxSelectBox('instance');
+
+                        if (item.SelectedProformaType === 'manual') {
+                            proformaSelectInstance.option('value', 'manual');
+
+                            // Set manual values
+                            setTimeout(function() {
+                                if (item.PriceUnitFX !== null) {
+                                    $(`#priceUnitFX_${index}`).dxNumberBox('instance').option('value', item.PriceUnitFX);
+                                }
+                                if (item.CurrencyId !== null) {
+                                    $(`#currencySelect_${index}`).dxSelectBox('instance').option('value', item.CurrencyId);
+                                }
+                                if (item.CurrencySrcId !== null) {
+                                    $(`#currencySrcSelect_${index}`).dxSelectBox('instance').option('value', item.CurrencySrcId);
+                                }
+                            }, 200);
+                        } else if (item.partPrdId !== null) {
+                            proformaSelectInstance.option('value', item.partPrdId);
+                        }
+                    }
+                });
+
+                // Update current loaded change and popup title
+                currentLoadedChange = {
+                    BomDetailChangeId: bomDetailChangeId,
+                    ChangeName: changeName
+                };
+                bomDetailsPopup.option('title', 'محاسبه هزینه (' + changeName + ')');
+
+                DevExpress.ui.notify('تغییرات بارگذاری شد', 'success', 2000);
+            } else {
+                DevExpress.ui.notify('خطا در بارگذاری تغییرات', 'error', 3000);
+            }
+        },
+        error: function(xhr, status, error) {
+            loader('hide');
+            DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+        }
+    });
+}
+
+// تابع کمکی برای پیدا کردن index آیتم بر اساس ProductBomDetailId
+function findItemIndexByDetailId(productBomDetailId) {
+    let foundIndex = -1;
+
+    $('.dx-scrollview-content').find('[id^="productBomDetailId_"]').each(function() {
+        const index = $(this).attr('id').split('_')[1];
+        const detailId = parseInt($(this).val());
+
+        if (detailId === productBomDetailId) {
+            foundIndex = parseInt(index);
+            return false; // break loop
+        }
+    });
+
+    return foundIndex;
+}
+
+// تابع برای به‌روزرسانی یک تغییر ذخیره شده
+function updateBomChange(bomDetailChangeId, newData) {
+    loader('show');
+
+    const updateData = {
+        BomDetailChangeId: bomDetailChangeId,
+        ChangeName: newData.ChangeName || null,
+        BatchNo: newData.BatchNo || null,
+        ChangeDescription: newData.ChangeDescription || null
+    };
+
+    $.ajax({
+        url: 'Controller/cApiBom.ashx?action=updatebomchange',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(updateData),
+        dataType: 'json',
+        success: function(response) {
+            loader('hide');
+            if (response.success) {
+                DevExpress.ui.notify('تغییرات با موفقیت ذخیره شد', 'success', 2000);
+
+                // اگر این رکورد همان رکوردی است که الان بارگذاری شده، عنوان را آپدیت کن
+                if (currentLoadedChange && currentLoadedChange.BomDetailChangeId === bomDetailChangeId && newData.ChangeName) {
+                    currentLoadedChange.ChangeName = newData.ChangeName;
+                    bomDetailsPopup.option('title', 'محاسبه هزینه (' + newData.ChangeName + ')');
+                }
+            } else {
+                DevExpress.ui.notify('خطا در ذخیره: ' + (response.error || 'خطای نامشخص'), 'error', 3000);
+            }
+        },
+        error: function(xhr, status, error) {
+            loader('hide');
+            DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+        }
+    });
+}
+
+// تابع برای حذف یک تغییر ذخیره شده
+function deleteBomChange(bomDetailChangeId, loadDialog) {
+    loader('show');
+
+    $.ajax({
+        url: `Controller/cApiBom.ashx?action=deletebomchange&bomDetailChangeId=${bomDetailChangeId}`,
+        type: 'POST', // تغییر از DELETE به POST
+        dataType: 'json',
+        success: function(response) {
+            loader('hide');
+            if (response.success) {
+                DevExpress.ui.notify('رکورد با موفقیت حذف شد', 'success', 2000);
+
+                // اگر این رکورد همان رکوردی است که الان بارگذاری شده، عنوان را به حالت اولیه برگردان
+                if (currentLoadedChange && currentLoadedChange.BomDetailChangeId === bomDetailChangeId) {
+                    currentLoadedChange = null;
+                    bomDetailsPopup.option('title', 'محاسبه هزینه');
+                }
+
+                // رفرش grid
+                const grid = $('#bomChangesGrid').dxDataGrid('instance');
+                if (grid) {
+                    grid.refresh();
+                }
+            } else {
+                DevExpress.ui.notify('خطا در حذف: ' + (response.error || 'خطای نامشخص'), 'error', 3000);
+            }
+        },
+        error: function(xhr, status, error) {
+            loader('hide');
+            DevExpress.ui.notify('خطا در ارتباط با سرور: ' + error, 'error', 3000);
+        }
+    });
+}
+function setLoadButtonDisabled(isDisabled) {
+    try {
+        if (!bomDetailsPopup) return;
+
+        const toolbarItems = bomDetailsPopup.option('toolbarItems');
+        if (!toolbarItems || !Array.isArray(toolbarItems)) return;
+
+        const loadBtnItem = toolbarItems.find(item =>
+            item.options?.elementAttr?.id === 'loadBomChangeBtnToolbar'
+        );
+
+        if (!loadBtnItem) return;
+
+        loadBtnItem.options.disabled = isDisabled;
+
+        bomDetailsPopup.option('toolbarItems', toolbarItems);
+
+    } catch (error) {
+        console.log('Error while setting Load button state:', error);
+    }
+}
+function getSaveBomChangeCount(ProductBomHeaderId){
+        $.ajax({
+            url: `Controller/cApiBom.ashx?action=getsavebomchangecount&ProductBomHeaderId=${ProductBomHeaderId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && response.saveCount > 0) {
+                    setLoadButtonDisabled(false);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error while getting save count:', error);
+            }
+        });
 }
