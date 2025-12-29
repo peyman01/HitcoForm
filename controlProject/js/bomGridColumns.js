@@ -224,6 +224,18 @@ function createBomInsertCols(categories){
                 rowData.categoryType = value;
                 const cat = categories.find(c => c.categoryType === value);
                 rowData.categoryType = cat ? cat.categoryType : null;
+            },
+            calculateCellValue: function(rowData) {
+                // اگر مقدار از قبل ست شده، همون رو برگردون
+                if (rowData.categoryType) {
+                    return rowData.categoryType;
+                }
+                // اگر فقط یک آیتم در categories وجود داشت، اون رو به صورت خودکار انتخاب کن
+                if (categories && categories.length === 1) {
+                    rowData.categoryType = categories[0].categoryType;
+                    return categories[0].categoryType;
+                }
+                return rowData.categoryType;
             }
         },
         {
@@ -259,7 +271,7 @@ function createBomInsertCols(categories){
             dataField: 'Quantity',
             caption: 'مقدار',
             dataType: 'number',
-            format: '#,##0.###',
+            format: '#,##0.####',
             editorOptions: { min: 0 },
             setCellValue: function(rowData, value) {
                 rowData.Quantity = value;

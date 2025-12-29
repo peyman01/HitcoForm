@@ -837,7 +837,7 @@ function showBomDetails(data) {
                                                     }
                                                     |
                                                     مقدار: ${quantity} ${unitName}
-                                                    (معادل ${TotalPackQty.toFixed(3)} ${unitName} در محصول اصلی)
+                                                    (معادل ${TotalPackQty.toFixed(4)} ${unitName} در محصول اصلی)
                                                 </div>
                                             </div>
                                             <div style="display: flex; gap: 8px; align-items: center;">
@@ -1250,7 +1250,7 @@ function showBomDetails(data) {
                                                     }
                                                     |
                                                     مقدار: ${item.Quantity || 0} ${unitName}
-                                                    (معادل ${TotalPackQty.toFixed(3)} ${unitName} در محصول اصلی)
+                                                    (معادل ${TotalPackQty.toFixed(4)} ${unitName} در محصول اصلی)
                                                 </div>
                                             </div>
                                             <input type="hidden" value="${item.Quantity}" id="item_Quantity_${index}" />

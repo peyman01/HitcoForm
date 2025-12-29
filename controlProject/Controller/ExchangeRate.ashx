@@ -40,7 +40,7 @@ public class ExchangeRate : IHttpHandler, IRequiresSessionState
                 }
                 return;
             }
-            if (action == "saveAllCurrencies".ToLower())
+            if (action == "SaveAllCurrencies".ToLower())
             {
                 SaveAllCurrencyRates(context);
                 return;
@@ -549,10 +549,18 @@ public class ExchangeRate : IHttpHandler, IRequiresSessionState
                                 totalErrors++;
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
                             totalErrors++;
+                            allResults.Add(new
+                            {
+                                CurrencyCode = currencyCode,
+                                CurrencySymbol = symbol,
+                                error = ex.Message,
+                                stackTrace = ex.StackTrace
+                            });
                         }
+
                     }
                 }
             }
@@ -570,9 +578,11 @@ public class ExchangeRate : IHttpHandler, IRequiresSessionState
             context.Response.Write(JsonConvert.SerializeObject(new
             {
                 success = false,
-                error = ex.Message
+                error = ex.Message,
+                stackTrace = ex.StackTrace
             }));
         }
+
     }
 
     private string GetTarjihiRate(int baseId, string solarDate)

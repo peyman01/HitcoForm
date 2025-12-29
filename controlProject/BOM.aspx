@@ -161,7 +161,7 @@
                         row.rowIndex,
                         "calculationText",
                         //`معادل ${row.data.Quantity} × ${mainQty} = ${totalQty} ${unitName} در بسته‌بندی اولیه`
-                        `معادل ${totalQty.toFixed(3)} ${unitName} در بسته‌بندی اولیه`
+                        `معادل ${totalQty.toFixed(4)} ${unitName} در بسته‌بندی اولیه`
                     );
                 }
                 apiGrid.repaint();
@@ -179,7 +179,7 @@
                     secondaryPackagingGrid.cellValue(
                         row.rowIndex,
                         "calculationText",
-                        `معادل ${qtyPerMain.toFixed(3)} ${unitName} در بسته‌بندی اولیه`
+                        `معادل ${qtyPerMain.toFixed(4)} ${unitName} در بسته‌بندی اولیه`
                     );
                 }
                 secondaryPackagingGrid.repaint();
@@ -196,7 +196,7 @@
                     masterPackagingGrid.cellValue(
                         row.rowIndex,
                         "calculationText",
-                        `معادل ${qtyPerMain.toFixed(3)} ${unitName} در بسته‌بندی ثانویه`);
+                        `معادل ${qtyPerMain.toFixed(4)} ${unitName} در بسته‌بندی ثانویه`);
                 }
                 masterPackagingGrid.repaint();
             });
